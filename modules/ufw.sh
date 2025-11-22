@@ -6,7 +6,7 @@
 
 # Module metadata
 module_info() {
-    echo "UFW Manager|Manage UFW firewall rules and settings"
+    echo "UFW|Manage UFW firewall rules and settings"
 }
 
 # Check if UFW is installed
@@ -440,7 +440,7 @@ quick_setup() {
 module_main() {
     while true; do
         local choice
-        choice=$(ui_menu "UFW Manager" "Select operation:" \
+        choice=$(ui_menu "UFW" "Select operation:" \
             "install" "Install UFW" \
             "status" "Show UFW status" \
             "enable" "Enable UFW" \

@@ -6,7 +6,7 @@
 
 # Module metadata
 module_info() {
-    echo "SSH Manager|Configure SSH server and security"
+    echo "SSH|Configure SSH server and security"
 }
 
 # Configuration files
@@ -653,7 +653,7 @@ remove_custom_prompt() {
 module_main() {
     while true; do
         local choice
-        choice=$(ui_menu "SSH Manager" "Select operation:" \
+        choice=$(ui_menu "SSH" "Select operation:" \
             "status" "Show SSH status" \
             "prompt" "Install colored prompt" \
             "prompt-remove" "Remove colored prompt" \

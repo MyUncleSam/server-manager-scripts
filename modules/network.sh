@@ -6,7 +6,7 @@
 
 # Module metadata
 module_info() {
-    echo "Network Manager|Manage network interfaces and IP configuration"
+    echo "Network|Manage network interfaces and IP configuration"
 }
 
 # Netplan configuration directory
@@ -652,7 +652,7 @@ quick_setup() {
 module_main() {
     while true; do
         local choice
-        choice=$(ui_menu "Network Manager" "Select operation:" \
+        choice=$(ui_menu "Network" "Select operation:" \
             "status" "Show network status" \
             "quick" "Quick setup" \
             "ipv4" "Configure IPv4" \

@@ -55,18 +55,20 @@ ubuntu-scripts/
 │   ├── ui.sh              # Dialog-based UI helper functions
 │   └── common.sh          # Common utility functions
 ├── modules/               # Feature modules
-│   ├── apt-manager.sh
-│   ├── docker-install.sh
+│   ├── apt.sh
+│   ├── docker.sh
 │   ├── fail2ban.sh
-│   ├── hostname-manager.sh
+│   ├── hostname.sh
+│   ├── motd.sh
+│   ├── network.sh
 │   ├── ntp-client.sh
-│   ├── software-installer.sh
-│   ├── ssh-manager.sh
+│   ├── software.sh
+│   ├── ssh.sh
 │   ├── system-info.sh
+│   ├── ufw.sh
 │   ├── ufw-docker.sh
-│   ├── ufw-manager.sh
 │   ├── unattended-upgrades.sh
-│   └── user-management.sh
+│   └── user.sh
 ├── logs/                  # Log files (gitignored)
 ├── CLAUDE.md              # AI assistant instructions
 ├── FEATURES.md            # Detailed feature list

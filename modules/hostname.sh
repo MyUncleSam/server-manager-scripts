@@ -6,7 +6,7 @@
 
 # Module metadata
 module_info() {
-    echo "Hostname Manager|Configure hostname and hosts file"
+    echo "Hostname|Configure hostname and hosts file"
 }
 
 # Show current hostname info
@@ -396,7 +396,7 @@ set_icon() {
 module_main() {
     while true; do
         local choice
-        choice=$(ui_menu "Hostname Manager" "Select operation:" \
+        choice=$(ui_menu "Hostname" "Select operation:" \
             "info" "Show hostname information" \
             "set" "Set hostname" \
             "pretty" "Set pretty hostname" \

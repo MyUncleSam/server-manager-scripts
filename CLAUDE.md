@@ -20,10 +20,20 @@ ubuntu-scripts/
 │   ├── ui.sh              # Dialog-based UI helper functions
 │   └── common.sh          # Common utility functions
 ├── modules/
-│   ├── user-management.sh # User management module
-│   ├── system-info.sh     # System information module
-│   ├── docker-install.sh  # Docker installation module
-│   └── docker-ufw.sh      # Docker-UFW configuration module
+│   ├── apt.sh             # APT package management
+│   ├── docker.sh          # Docker installation
+│   ├── fail2ban.sh        # Fail2ban configuration
+│   ├── hostname.sh        # Hostname configuration
+│   ├── motd.sh            # MOTD banner configuration
+│   ├── network.sh         # Network interface management
+│   ├── ntp-client.sh      # NTP time synchronization
+│   ├── software.sh        # Non-APT software installation
+│   ├── ssh.sh             # SSH server configuration
+│   ├── system-info.sh     # System information
+│   ├── ufw.sh             # UFW firewall management
+│   ├── ufw-docker.sh      # UFW Docker integration
+│   ├── unattended-upgrades.sh # Automatic updates
+│   └── user.sh            # User management
 └── CLAUDE.md              # This file
 ```
 

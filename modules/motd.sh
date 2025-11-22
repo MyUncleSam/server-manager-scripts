@@ -6,7 +6,7 @@
 
 # Module metadata
 module_info() {
-    echo "MOTD Manager|Configure MOTD banner"
+    echo "MOTD|Configure MOTD banner"
 }
 
 # Configuration files
@@ -277,7 +277,7 @@ manage_scripts() {
 module_main() {
     while true; do
         local choice
-        choice=$(ui_menu "MOTD Manager" "Select operation:" \
+        choice=$(ui_menu "MOTD" "Select operation:" \
             "status" "Show status" \
             "show" "Show current MOTD" \
             "install" "Install MOTD banner" \

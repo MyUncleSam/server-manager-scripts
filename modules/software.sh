@@ -6,7 +6,7 @@
 
 # Module metadata
 module_info() {
-    echo "Software Installer|Install software not available via APT"
+    echo "Software|Install software not available via APT"
 }
 
 # Check if a command exists
@@ -626,7 +626,7 @@ install_multiple() {
 module_main() {
     while true; do
         local choice
-        choice=$(ui_menu "Software Installer" "Select operation:" \
+        choice=$(ui_menu "Software" "Select operation:" \
             "status" "Show installation status" \
             "multiple" "Install multiple software" \
             "rclone" "Install rclone" \

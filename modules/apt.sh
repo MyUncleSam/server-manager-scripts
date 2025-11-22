@@ -6,7 +6,7 @@
 
 # Module metadata
 module_info() {
-    echo "APT Manager|Manage packages, updates, and maintenance"
+    echo "APT|Manage packages, updates, and maintenance"
 }
 
 # Update package lists
@@ -484,7 +484,7 @@ show_cache_size() {
 module_main() {
     while true; do
         local choice
-        choice=$(ui_menu "APT Manager" "Select operation:" \
+        choice=$(ui_menu "APT" "Select operation:" \
             "updates" "Check and install updates" \
             "refresh" "Update package lists" \
             "common" "Install common packages" \
