@@ -189,10 +189,10 @@ fi
 
 # System info
 echo -e "${GREEN}─────────────────────────────────────────${NC}"
-echo -e " ${BLUE}OS:${NC}     $(lsb_release -ds 2>/dev/null || cat /etc/os-release | grep PRETTY_NAME | cut -d'"' -f2)"
-echo -e " ${BLUE}Kernel:${NC} $(uname -r)"
-echo -e " ${BLUE}Uptime:${NC} $(uptime -p | sed 's/up //')"
-echo -e " ${BLUE}IP:${NC}     $(hostname -I | awk '{print $1}')"
+echo -e " ${CYAN}OS:${NC}     $(lsb_release -ds 2>/dev/null || cat /etc/os-release | grep PRETTY_NAME | cut -d'"' -f2)"
+echo -e " ${CYAN}Kernel:${NC} $(uname -r)"
+echo -e " ${CYAN}Uptime:${NC} $(uptime -p | sed 's/up //')"
+echo -e " ${CYAN}IP:${NC}     $(hostname -I | awk '{print $1}')"
 echo -e "${GREEN}─────────────────────────────────────────${NC}"
 echo ""
 MOTD_EOF
