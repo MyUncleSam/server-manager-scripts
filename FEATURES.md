@@ -73,6 +73,20 @@ Configure time synchronization using systemd-timesyncd.
 - **Force time sync**
 - **Set time manually**
 
+## Network Manager
+
+Configure network interfaces using netplan.
+
+- **Show network status** - Interface info, IP addresses, routes, DNS
+- **Quick setup** - Guided interface configuration
+- **Configure IPv4** - DHCP, static IP, or disable
+- **Configure IPv6** - Auto (SLAAC), DHCPv6, static IP, or disable
+- **Disable IPv6 system-wide** - Via sysctl (affects all interfaces)
+- **Enable IPv6 system-wide** - Remove sysctl disable
+- **Show netplan config** - Display current netplan YAML
+- **Apply netplan** - Apply configuration changes
+- **Restart networking** - Restart systemd-networkd
+
 ## Software Installer
 
 Install software not available via APT.
@@ -91,15 +105,22 @@ Install software not available via APT.
   - **yq** - YAML processor
   - **starship** - Cross-shell prompt
 
+## MOTD Manager
+
+Configure system Message of the Day banner.
+
+- **Show status** - Banner installation status
+- **Show current MOTD** - Preview generated MOTD
+- **Install MOTD banner** - ASCII art hostname with figlet, system info, font selection, static/pretty hostname option
+- **Remove MOTD banner**
+- **Manage MOTD scripts** - Enable/disable scripts in /etc/update-motd.d
+
 ## SSH Manager
 
-Configure SSH server, MOTD, and shell prompt.
+Configure SSH server settings and security.
 
 - **Show SSH status**
-- **Show current MOTD**
-- **Install MOTD banner** - ASCII art hostname with figlet, system info, font preview
-- **Remove MOTD banner**
-- **Install colored prompt** - Root=Red, Users=Green, Path=Blue
+- **Install colored prompt** - Format: username@pretty-hostname /path $ (Username=Red/Green, @=Yellow, Hostname=Light Blue, Path=Yellow)
 - **Remove colored prompt**
 - **Change SSH port**
 - **Configure root login** - keys only, password, disabled, forced-commands-only

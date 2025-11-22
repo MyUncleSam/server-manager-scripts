@@ -53,9 +53,26 @@ set_hostname() {
         return 1
     fi
 
-    # Validate hostname
-    if [[ ! "$new_hostname" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]]; then
-        ui_msgbox "Error" "Invalid hostname format.\n\nHostname must:\n- Start with a letter or number\n- Contain only letters, numbers, and hyphens\n- Be 1-63 characters long\n- Not end with a hyphen"
+    # Validate hostname (allow FQDN with dots)
+    # Each label: start with alnum, can contain alnum and hyphens, end with alnum, max 63 chars
+    # Total hostname max 253 chars
+    if [[ ${#new_hostname} -gt 253 ]]; then
+        ui_msgbox "Error" "Hostname too long (max 253 characters)"
+        return 1
+    fi
+
+    # Check each label
+    local valid=true
+    IFS='.' read -ra labels <<< "$new_hostname"
+    for label in "${labels[@]}"; do
+        if [[ ! "$label" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]] && [[ ! "$label" =~ ^[a-zA-Z0-9]$ ]]; then
+            valid=false
+            break
+        fi
+    done
+
+    if [[ "$valid" != "true" ]]; then
+        ui_msgbox "Error" "Invalid hostname format.\n\nEach label must:\n- Start with a letter or number\n- Contain only letters, numbers, and hyphens\n- Be 1-63 characters long\n- Not end with a hyphen"
         return 1
     fi
 
@@ -97,15 +114,25 @@ update_hosts_file() {
     # Backup hosts file
     backup_file "/etc/hosts"
 
-    # Replace old hostname with new one
-    sed -i "s/\b$old_hostname\b/$new_hostname/g" /etc/hosts
+    # Extract short name from FQDN
+    local short_name="${new_hostname%%.*}"
+    local old_short="${old_hostname%%.*}"
 
-    # Ensure localhost entries exist
-    if ! grep -q "127.0.0.1.*localhost" /etc/hosts; then
+    # Remove old hostname entries from 127.0.1.1 line
+    sed -i "/^127\.0\.1\.1/d" /etc/hosts
+
+    # Ensure localhost entry exists
+    if ! grep -q "^127.0.0.1.*localhost" /etc/hosts; then
         echo "127.0.0.1 localhost" >> /etc/hosts
     fi
 
-    if ! grep -q "127.0.1.1.*$new_hostname" /etc/hosts; then
+    # Add new hostname entry with FQDN and short name
+    # Format: 127.0.1.1 fqdn shortname (if FQDN) or just hostname
+    if [[ "$new_hostname" == *"."* ]]; then
+        # It's a FQDN - add both FQDN and short name
+        echo "127.0.1.1 $new_hostname $short_name" >> /etc/hosts
+    else
+        # Just a short hostname
         echo "127.0.1.1 $new_hostname" >> /etc/hosts
     fi
 
