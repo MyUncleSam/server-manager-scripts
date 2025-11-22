@@ -72,20 +72,28 @@ show_current_motd() {
 # Preview MOTD with specific font
 preview_motd() {
     local font="$1"
-    local hostname
-    hostname=$(hostname)
+    local hostname_type="${2:-static}"
+    local display_hostname
+
+    # Get hostname based on type
+    if [[ "$hostname_type" == "pretty" ]]; then
+        display_hostname=$(hostnamectl --pretty 2>/dev/null)
+        [[ -z "$display_hostname" ]] && display_hostname=$(hostname)
+    else
+        display_hostname=$(hostname)
+    fi
 
     local preview=""
     preview+="\n"
 
     # Generate ASCII art preview
     if command_exists figlet; then
-        preview+=$(figlet -f "$font" "$hostname" 2>/dev/null || echo "$hostname")
+        preview+=$(figlet -f "$font" "$display_hostname" 2>/dev/null || echo "$display_hostname")
     else
-        local len=${#hostname}
+        local len=${#display_hostname}
         local border=$(printf '=%.0s' $(seq 1 $((len + 4))))
         preview+="$border\n"
-        preview+="| $hostname |\n"
+        preview+="| $display_hostname |\n"
         preview+="$border"
     fi
 
@@ -97,7 +105,7 @@ preview_motd() {
     preview+="─────────────────────────────────────────\n"
 
     echo -e "$preview" > /tmp/motd_preview.txt
-    ui_textbox "MOTD Preview (Font: $font)" /tmp/motd_preview.txt
+    ui_textbox "MOTD Preview (Font: $font, Hostname: $hostname_type)" /tmp/motd_preview.txt
     rm -f /tmp/motd_preview.txt
 }
 
@@ -133,7 +141,7 @@ install_motd_banner() {
                 "mini" "Mini") || font="small"
 
             # Show preview
-            preview_motd "$font"
+            preview_motd "$font" "$hostname_type"
 
             if ui_yesno "Confirm Font" "Use this font: $font?"; then
                 break
