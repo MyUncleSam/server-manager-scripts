@@ -311,16 +311,16 @@ module_main() {
     while true; do
         local choice
         choice=$(ui_menu "Docker UFW" "Select operation:" \
+            "status" "Show status" \
             "install" "Install ufw-docker" \
             "uninstall" "Uninstall ufw-docker" \
-            "status" "Show status" \
             "allow" "Allow container port" \
             "delete" "Delete container rule") || break
 
         case "$choice" in
+            status)    show_status ;;
             install)   install_ufw_docker ;;
             uninstall) uninstall_ufw_docker ;;
-            status)    show_status ;;
             allow)     allow_container ;;
             delete)    delete_rule ;;
         esac

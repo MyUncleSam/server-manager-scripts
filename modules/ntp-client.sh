@@ -508,8 +508,8 @@ module_main() {
     while true; do
         local choice
         choice=$(ui_menu "NTP Client" "Select operation:" \
-            "quick" "Quick setup" \
             "status" "Show status" \
+            "quick" "Quick setup" \
             "servers" "Configure NTP servers" \
             "timezone" "Configure timezone" \
             "enable" "Enable NTP sync" \
@@ -518,8 +518,8 @@ module_main() {
             "manual" "Set time manually") || break
 
         case "$choice" in
-            quick)    quick_setup ;;
             status)   show_status ;;
+            quick)    quick_setup ;;
             servers)  configure_ntp_servers ;;
             timezone) configure_timezone ;;
             enable)   enable_ntp ;;

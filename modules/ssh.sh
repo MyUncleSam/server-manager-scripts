@@ -649,32 +649,171 @@ remove_custom_prompt() {
     fi
 }
 
+# Configure allowed users
+configure_allowed_users() {
+    if ! require_root; then
+        return 1
+    fi
+
+    if ! check_ssh_installed; then
+        return 1
+    fi
+
+    local choice
+    choice=$(ui_menu "User Access" "Select configuration:" \
+        "allow" "Set AllowUsers" \
+        "deny" "Set DenyUsers" \
+        "clear" "Clear user restrictions") || return
+
+    case "$choice" in
+        allow)
+            local users
+            users=$(ui_inputbox "AllowUsers" "Enter usernames (space-separated):\n\nOnly these users can login via SSH." "root") || return
+            mkdir -p "$SSHD_CONFIG_D"
+            echo "AllowUsers $users" > "$SSHD_CONFIG_D/${CONFIG_PREFIX}-allowusers.conf"
+            rm -f "$SSHD_CONFIG_D/${CONFIG_PREFIX}-denyusers.conf"
+            systemctl restart sshd 2>/dev/null || systemctl restart ssh
+            log_info "Set SSH AllowUsers: $users"
+            ui_msgbox "Success" "AllowUsers set to: $users"
+            ;;
+        deny)
+            local users
+            users=$(ui_inputbox "DenyUsers" "Enter usernames (space-separated):\n\nThese users cannot login via SSH.") || return
+            mkdir -p "$SSHD_CONFIG_D"
+            echo "DenyUsers $users" > "$SSHD_CONFIG_D/${CONFIG_PREFIX}-denyusers.conf"
+            rm -f "$SSHD_CONFIG_D/${CONFIG_PREFIX}-allowusers.conf"
+            systemctl restart sshd 2>/dev/null || systemctl restart ssh
+            log_info "Set SSH DenyUsers: $users"
+            ui_msgbox "Success" "DenyUsers set to: $users"
+            ;;
+        clear)
+            rm -f "$SSHD_CONFIG_D/${CONFIG_PREFIX}-allowusers.conf"
+            rm -f "$SSHD_CONFIG_D/${CONFIG_PREFIX}-denyusers.conf"
+            systemctl restart sshd 2>/dev/null || systemctl restart ssh
+            log_info "Cleared SSH user restrictions"
+            ui_msgbox "Success" "User restrictions cleared"
+            ;;
+    esac
+}
+
+# Show active SSH sessions
+show_active_sessions() {
+    local info=""
+    info+="=== Active SSH Sessions ===\n\n"
+    info+="$(who 2>&1)\n"
+    info+="\n=== SSH Connections ===\n\n"
+    info+="$(ss -tnp | grep ssh 2>&1)\n"
+
+    echo -e "$info" > /tmp/ssh_sessions.txt
+    ui_textbox "Active Sessions" /tmp/ssh_sessions.txt
+    rm -f /tmp/ssh_sessions.txt
+}
+
+# Kick SSH session
+kick_session() {
+    if ! require_root; then
+        return 1
+    fi
+
+    # Get list of sessions
+    local sessions_list=()
+    while IFS= read -r line; do
+        local user tty
+        user=$(echo "$line" | awk '{print $1}')
+        tty=$(echo "$line" | awk '{print $2}')
+        [[ -n "$user" && -n "$tty" ]] && sessions_list+=("$tty" "$user")
+    done < <(who | grep pts)
+
+    if [[ ${#sessions_list[@]} -eq 0 ]]; then
+        ui_msgbox "Info" "No active SSH sessions found"
+        return
+    fi
+
+    local tty
+    tty=$(ui_menu "Kick Session" "Select session to terminate:" "${sessions_list[@]}") || return
+
+    if ui_yesno "Confirm" "Terminate session on $tty?"; then
+        pkill -9 -t "$tty"
+        log_info "Kicked SSH session: $tty"
+        ui_msgbox "Success" "Session terminated"
+    fi
+}
+
+# View auth log
+view_auth_log() {
+    local log_file="/var/log/auth.log"
+
+    if [[ ! -f "$log_file" ]]; then
+        log_file="/var/log/secure"
+    fi
+
+    if [[ ! -f "$log_file" ]]; then
+        ui_msgbox "Error" "Auth log not found"
+        return
+    fi
+
+    local choice
+    choice=$(ui_menu "Auth Log" "Select view:" \
+        "recent" "Recent entries (last 100)" \
+        "failed" "Failed login attempts" \
+        "success" "Successful logins" \
+        "all" "All SSH entries") || return
+
+    local content=""
+    case "$choice" in
+        recent)
+            content=$(tail -100 "$log_file")
+            ;;
+        failed)
+            content=$(grep -i "failed\|invalid\|error" "$log_file" | tail -100)
+            ;;
+        success)
+            content=$(grep -i "accepted\|opened" "$log_file" | tail -100)
+            ;;
+        all)
+            content=$(grep -i "sshd" "$log_file" | tail -100)
+            ;;
+    esac
+
+    echo "$content" > /tmp/auth_log.txt
+    ui_textbox "Auth Log" /tmp/auth_log.txt
+    rm -f /tmp/auth_log.txt
+}
+
 # Main module function
 module_main() {
     while true; do
         local choice
         choice=$(ui_menu "SSH" "Select operation:" \
             "status" "Show SSH status" \
-            "prompt" "Install colored prompt" \
-            "prompt-remove" "Remove colored prompt" \
+            "sessions" "Show active sessions" \
+            "kick" "Kick session" \
+            "authlog" "View auth log" \
             "port" "Change SSH port" \
             "root" "Configure root login" \
             "password" "Configure password auth" \
+            "users" "Configure allowed users" \
+            "keys" "Manage SSH keys" \
             "harden" "Harden SSH (security)" \
             "advanced" "Advanced settings" \
-            "keys" "Manage SSH keys" \
+            "prompt" "Install colored prompt" \
+            "prompt-remove" "Remove colored prompt" \
             "restart" "Restart SSH service") || break
 
         case "$choice" in
             status)        show_status ;;
-            prompt)        install_custom_prompt ;;
-            prompt-remove) remove_custom_prompt ;;
+            sessions)      show_active_sessions ;;
+            kick)          kick_session ;;
+            authlog)       view_auth_log ;;
             port)          change_ssh_port ;;
             root)          configure_root_login ;;
             password)      configure_password_auth ;;
+            users)         configure_allowed_users ;;
+            keys)          manage_keys ;;
             harden)        harden_ssh ;;
             advanced)      configure_advanced ;;
-            keys)          manage_keys ;;
+            prompt)        install_custom_prompt ;;
+            prompt-remove) remove_custom_prompt ;;
             restart)       restart_ssh ;;
         esac
     done

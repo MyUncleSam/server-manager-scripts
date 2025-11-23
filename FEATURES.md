@@ -36,6 +36,7 @@ Install and configure fail2ban intrusion prevention.
 
 - **Quick setup** - Install and enable common jails
 - **Show status** - Overall fail2ban status
+- **Show statistics** - Ban counts per jail
 - **Show jail status** - Individual jail details
 - **Show banned IPs** - All banned IPs per jail
 - **Install/Uninstall fail2ban**
@@ -43,6 +44,8 @@ Install and configure fail2ban intrusion prevention.
 - **Enable jail** - SSH, Apache, Nginx, Postfix, Dovecot, MySQL, custom
 - **Disable jail**
 - **Ban/Unban IP manually**
+- **Clear all bans** - Unban all IPs from all jails
+- **Whitelist IP** - Never ban specific IPs
 - **View log**
 - **Restart service**
 
@@ -78,9 +81,13 @@ Configure time synchronization using systemd-timesyncd.
 Configure network interfaces using netplan.
 
 - **Show network status** - Interface info, IP addresses, routes, DNS
+- **Test connectivity** - DNS, ping, and HTTP tests
+- **Show routing table** - IPv4 and IPv6 routes
 - **Quick setup** - Guided interface configuration
 - **Configure IPv4** - DHCP, static IP, or disable
 - **Configure IPv6** - Auto (SLAAC), DHCPv6, static IP, or disable
+- **Add static route** - Temporary route via gateway
+- **View DNS configuration** - Show resolv.conf
 - **Disable IPv6 system-wide** - Via sysctl (affects all interfaces)
 - **Enable IPv6 system-wide** - Remove sysctl disable
 - **Show netplan config** - Display current netplan YAML
@@ -93,6 +100,8 @@ Install software not available via APT.
 
 - **Show installation status**
 - **Install multiple software** - Checklist (hides already installed)
+- **Update all installed** - Update all installed software at once
+- **Uninstall software** - Remove installed software
 - Available software:
   - **rclone** - Cloud storage sync tool
   - **lazydocker** - Docker TUI
@@ -148,6 +157,21 @@ Display system information.
 - Memory information
 - Disk usage
 - Network information
+- Hardware information
+- System temperatures
+- Export system report
+
+## VM Guest Agents
+
+Install guest agents for virtual environments.
+
+- **Detect virtualization** - Auto-detect hypervisor environment
+- **Show status** - Installation status of all guest agents
+- **VMware Tools** - For VMware ESXi, Workstation, Fusion (open-vm-tools)
+- **QEMU Guest Agent** - For Proxmox, KVM, QEMU, libvirt
+- **VirtualBox Guest Additions** - For Oracle VirtualBox
+- **Hyper-V Daemons** - For Microsoft Hyper-V
+- **Xen Tools** - For Citrix XenServer, XCP-ng
 
 ## UFW Docker
 

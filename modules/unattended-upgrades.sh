@@ -304,18 +304,18 @@ module_main() {
             "status" "Show status" \
             "enable" "Enable unattended upgrades" \
             "disable" "Disable unattended upgrades" \
+            "origins" "Configure update origins" \
             "reboot" "Configure automatic reboot" \
             "unused" "Configure remove unused deps" \
-            "origins" "Configure update origins" \
             "run" "Run unattended-upgrade now") || break
 
         case "$choice" in
             status)  show_unattended_status ;;
             enable)  enable_unattended ;;
             disable) disable_unattended ;;
+            origins) configure_origins ;;
             reboot)  configure_auto_reboot ;;
             unused)  configure_remove_unused ;;
-            origins) configure_origins ;;
             run)     run_unattended_now ;;
         esac
     done

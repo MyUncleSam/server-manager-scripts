@@ -436,32 +436,167 @@ quick_setup() {
     ui_msgbox "Success" "Rules added:\n\n$output"
 }
 
+# Add rate limit rule
+add_limit_rule() {
+    if ! require_root; then
+        return 1
+    fi
+
+    if ! check_ufw_installed; then
+        return 1
+    fi
+
+    local port
+    port=$(ui_inputbox "Limit Rule" "Enter port to limit (e.g., 22 for SSH):" "22") || return
+
+    if ! validate_port "$port"; then
+        ui_msgbox "Error" "Invalid port number"
+        return 1
+    fi
+
+    if ui_yesno "Confirm" "Add rate limit rule for port $port?\n\nThis blocks IPs that attempt more than 6 connections in 30 seconds."; then
+        local result
+        result=$(ufw limit "$port/tcp" 2>&1)
+        log_info "Added UFW limit rule: port $port"
+        ui_msgbox "Success" "$result"
+    fi
+}
+
+# Show numbered rules
+show_numbered_rules() {
+    if ! check_ufw_installed; then
+        return 1
+    fi
+
+    local rules
+    rules=$(ufw status numbered 2>&1)
+
+    echo "$rules" > /tmp/ufw_numbered.txt
+    ui_textbox "UFW Rules (Numbered)" /tmp/ufw_numbered.txt
+    rm -f /tmp/ufw_numbered.txt
+}
+
+# Set logging level
+set_logging() {
+    if ! require_root; then
+        return 1
+    fi
+
+    if ! check_ufw_installed; then
+        return 1
+    fi
+
+    local level
+    level=$(ui_menu "Logging Level" "Select UFW logging level:" \
+        "off" "Disabled" \
+        "low" "Low (blocked packets)" \
+        "medium" "Medium (+ invalid packets)" \
+        "high" "High (+ rate limiting)" \
+        "full" "Full (all packets)") || return
+
+    local result
+    result=$(ufw logging "$level" 2>&1)
+    log_info "Set UFW logging level: $level"
+    ui_msgbox "Success" "$result"
+}
+
+# Export rules
+export_rules() {
+    if ! check_ufw_installed; then
+        return 1
+    fi
+
+    local export_file
+    export_file=$(ui_inputbox "Export Rules" "Enter export file path:" "/root/ufw-rules-backup.txt") || return
+
+    {
+        echo "# UFW Rules Export - $(date)"
+        echo "# Restore with: ufw-import-rules.sh"
+        echo ""
+        ufw status numbered
+    } > "$export_file"
+
+    # Also export user rules
+    if [[ -f /etc/ufw/user.rules ]]; then
+        cp /etc/ufw/user.rules "${export_file%.txt}-user.rules"
+    fi
+    if [[ -f /etc/ufw/user6.rules ]]; then
+        cp /etc/ufw/user6.rules "${export_file%.txt}-user6.rules"
+    fi
+
+    log_info "Exported UFW rules to: $export_file"
+    ui_msgbox "Success" "Rules exported to:\n$export_file\n${export_file%.txt}-user.rules\n${export_file%.txt}-user6.rules"
+}
+
+# Import rules
+import_rules() {
+    if ! require_root; then
+        return 1
+    fi
+
+    if ! check_ufw_installed; then
+        return 1
+    fi
+
+    local import_file
+    import_file=$(ui_inputbox "Import Rules" "Enter user.rules file path:" "/root/ufw-rules-backup-user.rules") || return
+
+    if [[ ! -f "$import_file" ]]; then
+        ui_msgbox "Error" "File not found: $import_file"
+        return 1
+    fi
+
+    if ui_yesno "Confirm" "Import UFW rules from:\n$import_file\n\nThis will overwrite current rules."; then
+        cp "$import_file" /etc/ufw/user.rules
+
+        # Check for IPv6 rules
+        local ipv6_file="${import_file/user.rules/user6.rules}"
+        if [[ -f "$ipv6_file" ]]; then
+            cp "$ipv6_file" /etc/ufw/user6.rules
+        fi
+
+        ufw reload
+        log_info "Imported UFW rules from: $import_file"
+        ui_msgbox "Success" "Rules imported and UFW reloaded"
+    fi
+}
+
 # Main module function
 module_main() {
     while true; do
         local choice
         choice=$(ui_menu "UFW" "Select operation:" \
-            "install" "Install UFW" \
             "status" "Show UFW status" \
+            "numbered" "Show numbered rules" \
+            "install" "Install UFW" \
             "enable" "Enable UFW" \
             "disable" "Disable UFW" \
+            "quick" "Quick setup (common services)" \
+            "defaults" "Set default policies" \
             "allow" "Add allow rule" \
             "deny" "Add deny rule" \
+            "limit" "Add rate limit rule" \
             "delete" "Delete rule" \
-            "defaults" "Set default policies" \
-            "quick" "Quick setup (common services)" \
+            "logging" "Set logging level" \
+            "export" "Export rules" \
+            "import" "Import rules" \
             "reset" "Reset UFW to defaults") || break
 
         case "$choice" in
-            install)  install_ufw ;;
             status)   show_status ;;
+            numbered) show_numbered_rules ;;
+            install)  install_ufw ;;
             enable)   enable_ufw ;;
             disable)  disable_ufw ;;
+            quick)    quick_setup ;;
+            defaults) set_defaults ;;
             allow)    add_allow_rule ;;
             deny)     add_deny_rule ;;
+            limit)    add_limit_rule ;;
             delete)   delete_rule ;;
-            defaults) set_defaults ;;
-            quick)    quick_setup ;;
+            logging)  set_logging ;;
+            export)   export_rules ;;
+            import)   import_rules ;;
             reset)    reset_ufw ;;
         esac
     done

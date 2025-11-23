@@ -552,6 +552,149 @@ install_starship() {
     fi
 }
 
+# Uninstall software
+uninstall_software() {
+    if ! require_root; then
+        return 1
+    fi
+
+    # Build list of installed software
+    local pkg_list=()
+
+    is_installed lazydocker && pkg_list+=("lazydocker" "Docker TUI" "off")
+    is_installed lazygit && pkg_list+=("lazygit" "Git TUI" "off")
+    is_installed btop && pkg_list+=("btop" "Resource monitor" "off")
+    is_installed bat && pkg_list+=("bat" "Better cat" "off")
+    is_installed fd && pkg_list+=("fd" "Better find" "off")
+    is_installed rg && pkg_list+=("ripgrep" "Better grep" "off")
+    is_installed fzf && pkg_list+=("fzf" "Fuzzy finder" "off")
+    is_installed yq && pkg_list+=("yq" "YAML processor" "off")
+    is_installed starship && pkg_list+=("starship" "Cross-shell prompt" "off")
+
+    if [[ ${#pkg_list[@]} -eq 0 ]]; then
+        ui_msgbox "Info" "No removable software installed"
+        return 0
+    fi
+
+    local selected
+    selected=$(ui_checklist "Uninstall Software" "Select software to remove:" "${pkg_list[@]}") || return
+
+    if [[ -z "$selected" ]]; then
+        return
+    fi
+
+    for pkg in $selected; do
+        pkg=$(echo "$pkg" | tr -d '"')
+        case "$pkg" in
+            lazydocker) rm -f /usr/local/bin/lazydocker ;;
+            lazygit)    rm -f /usr/local/bin/lazygit ;;
+            btop)       rm -rf /usr/local/bin/btop /usr/local/share/btop ;;
+            bat)        rm -f /usr/local/bin/bat ;;
+            fd)         rm -f /usr/local/bin/fd ;;
+            ripgrep)    rm -f /usr/local/bin/rg ;;
+            fzf)        rm -f /usr/local/bin/fzf ;;
+            yq)         rm -f /usr/local/bin/yq ;;
+            starship)   rm -f /usr/local/bin/starship ;;
+        esac
+        log_info "Uninstalled: $pkg"
+    done
+
+    ui_msgbox "Success" "Selected software has been removed"
+}
+
+# Update all installed software
+update_all() {
+    if ! require_root; then
+        return 1
+    fi
+
+    if ! has_internet; then
+        ui_msgbox "Error" "Internet connection required"
+        return 1
+    fi
+
+    local to_update=""
+    is_installed rclone && to_update+="rclone "
+    is_installed lazydocker && to_update+="lazydocker "
+    is_installed lazygit && to_update+="lazygit "
+    is_installed btop && to_update+="btop "
+    is_installed bat && to_update+="bat "
+    is_installed fd && to_update+="fd "
+    is_installed rg && to_update+="ripgrep "
+    is_installed fzf && to_update+="fzf "
+    is_installed yq && to_update+="yq "
+    is_installed starship && to_update+="starship "
+
+    if [[ -z "$to_update" ]]; then
+        ui_msgbox "Info" "No software installed to update"
+        return 0
+    fi
+
+    if ! ui_yesno "Update All" "Update all installed software?\n\n$to_update"; then
+        return
+    fi
+
+    # Update each package silently (no individual prompts)
+    for pkg in $to_update; do
+        ui_infobox "Updating" "Updating $pkg..."
+        case "$pkg" in
+            rclone)
+                curl -fsSL https://rclone.org/install.sh | bash &>/dev/null
+                ;;
+            lazydocker)
+                curl -fsSL https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash &>/dev/null
+                [[ -f "$HOME/.local/bin/lazydocker" ]] && mv "$HOME/.local/bin/lazydocker" /usr/local/bin/
+                ;;
+            lazygit)
+                local ver=$(curl -fsSL https://api.github.com/repos/jesseduffield/lazygit/releases/latest | jq -r .tag_name | tr -d 'v')
+                local arch=$(uname -m); [[ "$arch" == "x86_64" ]] && arch="x86_64" || arch="arm64"
+                curl -fsSL "https://github.com/jesseduffield/lazygit/releases/download/v${ver}/lazygit_${ver}_Linux_${arch}.tar.gz" -o /tmp/lazygit.tar.gz
+                tar xzf /tmp/lazygit.tar.gz -C /tmp lazygit && mv /tmp/lazygit /usr/local/bin/ && rm -f /tmp/lazygit.tar.gz
+                ;;
+            btop)
+                local ver=$(curl -fsSL https://api.github.com/repos/aristocratos/btop/releases/latest | jq -r .tag_name | tr -d 'v')
+                curl -fsSL "https://github.com/aristocratos/btop/releases/download/v${ver}/btop-$(uname -m)-linux-musl.tbz" -o /tmp/btop.tbz
+                tar xjf /tmp/btop.tbz -C /tmp && cd /tmp/btop && make install PREFIX=/usr/local &>/dev/null && cd /tmp && rm -rf btop btop.tbz
+                ;;
+            bat)
+                local ver=$(curl -fsSL https://api.github.com/repos/sharkdp/bat/releases/latest | jq -r .tag_name | tr -d 'v')
+                local arch=$(uname -m); [[ "$arch" == "x86_64" ]] && arch="x86_64-unknown-linux-musl" || arch="aarch64-unknown-linux-gnu"
+                curl -fsSL "https://github.com/sharkdp/bat/releases/download/v${ver}/bat-v${ver}-${arch}.tar.gz" -o /tmp/bat.tar.gz
+                tar xzf /tmp/bat.tar.gz -C /tmp && cp "/tmp/bat-v${ver}-${arch}/bat" /usr/local/bin/ && rm -rf /tmp/bat.tar.gz "/tmp/bat-v${ver}-${arch}"
+                ;;
+            fd)
+                local ver=$(curl -fsSL https://api.github.com/repos/sharkdp/fd/releases/latest | jq -r .tag_name | tr -d 'v')
+                local arch=$(uname -m); [[ "$arch" == "x86_64" ]] && arch="x86_64-unknown-linux-musl" || arch="aarch64-unknown-linux-gnu"
+                curl -fsSL "https://github.com/sharkdp/fd/releases/download/v${ver}/fd-v${ver}-${arch}.tar.gz" -o /tmp/fd.tar.gz
+                tar xzf /tmp/fd.tar.gz -C /tmp && cp "/tmp/fd-v${ver}-${arch}/fd" /usr/local/bin/ && rm -rf /tmp/fd.tar.gz "/tmp/fd-v${ver}-${arch}"
+                ;;
+            ripgrep)
+                local ver=$(curl -fsSL https://api.github.com/repos/BurntSushi/ripgrep/releases/latest | jq -r .tag_name)
+                local arch=$(uname -m); [[ "$arch" == "x86_64" ]] && arch="x86_64-unknown-linux-musl" || arch="aarch64-unknown-linux-gnu"
+                curl -fsSL "https://github.com/BurntSushi/ripgrep/releases/download/${ver}/ripgrep-${ver}-${arch}.tar.gz" -o /tmp/rg.tar.gz
+                tar xzf /tmp/rg.tar.gz -C /tmp && cp "/tmp/ripgrep-${ver}-${arch}/rg" /usr/local/bin/ && rm -rf /tmp/rg.tar.gz "/tmp/ripgrep-${ver}-${arch}"
+                ;;
+            fzf)
+                local ver=$(curl -fsSL https://api.github.com/repos/junegunn/fzf/releases/latest | jq -r .tag_name | tr -d 'v')
+                local arch=$(uname -m); [[ "$arch" == "x86_64" ]] && arch="amd64" || arch="arm64"
+                curl -fsSL "https://github.com/junegunn/fzf/releases/download/v${ver}/fzf-${ver}-linux_${arch}.tar.gz" -o /tmp/fzf.tar.gz
+                tar xzf /tmp/fzf.tar.gz -C /tmp && mv /tmp/fzf /usr/local/bin/ && rm -f /tmp/fzf.tar.gz
+                ;;
+            yq)
+                local ver=$(curl -fsSL https://api.github.com/repos/mikefarah/yq/releases/latest | jq -r .tag_name)
+                local arch=$(uname -m); [[ "$arch" == "x86_64" ]] && arch="amd64" || arch="arm64"
+                curl -fsSL "https://github.com/mikefarah/yq/releases/download/${ver}/yq_linux_${arch}" -o /usr/local/bin/yq && chmod +x /usr/local/bin/yq
+                ;;
+            starship)
+                curl -fsSL https://starship.rs/install.sh | sh -s -- -y &>/dev/null
+                ;;
+        esac
+        log_info "Updated: $pkg"
+    done
+
+    ui_msgbox "Complete" "All software has been updated"
+}
+
 # Install multiple software
 install_multiple() {
     if ! require_root; then
@@ -628,33 +771,15 @@ module_main() {
         local choice
         choice=$(ui_menu "Software" "Select operation:" \
             "status" "Show installation status" \
-            "multiple" "Install multiple software" \
-            "rclone" "Install rclone" \
-            "rclone-remove" "Uninstall rclone" \
-            "lazydocker" "Install lazydocker" \
-            "lazygit" "Install lazygit" \
-            "btop" "Install btop" \
-            "bat" "Install bat" \
-            "fd" "Install fd" \
-            "ripgrep" "Install ripgrep" \
-            "fzf" "Install fzf" \
-            "yq" "Install yq" \
-            "starship" "Install starship") || break
+            "install" "Install software" \
+            "uninstall" "Uninstall software" \
+            "update-all" "Update all installed") || break
 
         case "$choice" in
-            status)         show_status ;;
-            multiple)       install_multiple ;;
-            rclone)         install_rclone ;;
-            rclone-remove)  uninstall_rclone ;;
-            lazydocker)     install_lazydocker ;;
-            lazygit)        install_lazygit ;;
-            btop)           install_btop ;;
-            bat)            install_bat ;;
-            fd)             install_fd ;;
-            ripgrep)        install_ripgrep ;;
-            fzf)            install_fzf ;;
-            yq)             install_yq ;;
-            starship)       install_starship ;;
+            status)     show_status ;;
+            install)    install_multiple ;;
+            uninstall)  uninstall_software ;;
+            update-all) update_all ;;
         esac
     done
 }

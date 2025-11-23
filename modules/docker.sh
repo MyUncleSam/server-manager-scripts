@@ -244,21 +244,180 @@ manage_service() {
     log_info "Docker service: $choice"
 }
 
+# List containers
+list_containers() {
+    if ! check_docker_installed; then
+        ui_msgbox "Info" "Docker is not installed"
+        return
+    fi
+
+    if ! service_is_running docker; then
+        ui_msgbox "Info" "Docker service is not running"
+        return
+    fi
+
+    local info=""
+    info+="=== Docker Containers ===\n\n"
+    info+="$(docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}\t{{.Ports}}' 2>&1)\n"
+
+    echo -e "$info" > /tmp/docker_containers.txt
+    ui_textbox "Docker Containers" /tmp/docker_containers.txt
+    rm -f /tmp/docker_containers.txt
+}
+
+# List images
+list_images() {
+    if ! check_docker_installed; then
+        ui_msgbox "Info" "Docker is not installed"
+        return
+    fi
+
+    if ! service_is_running docker; then
+        ui_msgbox "Info" "Docker service is not running"
+        return
+    fi
+
+    local info=""
+    info+="=== Docker Images ===\n\n"
+    info+="$(docker images --format 'table {{.Repository}}\t{{.Tag}}\t{{.Size}}\t{{.CreatedSince}}' 2>&1)\n"
+
+    echo -e "$info" > /tmp/docker_images.txt
+    ui_textbox "Docker Images" /tmp/docker_images.txt
+    rm -f /tmp/docker_images.txt
+}
+
+# Prune system
+prune_system() {
+    if ! check_docker_installed; then
+        ui_msgbox "Info" "Docker is not installed"
+        return
+    fi
+
+    if ! service_is_running docker; then
+        ui_msgbox "Info" "Docker service is not running"
+        return
+    fi
+
+    if ! require_root; then
+        return 1
+    fi
+
+    local choice
+    choice=$(ui_menu "Docker Prune" "Select what to clean:" \
+        "all" "Remove all unused data" \
+        "containers" "Remove stopped containers" \
+        "images" "Remove unused images" \
+        "volumes" "Remove unused volumes" \
+        "networks" "Remove unused networks") || return
+
+    local cmd=""
+    local desc=""
+    case "$choice" in
+        all)
+            cmd="docker system prune -a -f --volumes"
+            desc="all unused containers, images, networks, and volumes"
+            ;;
+        containers)
+            cmd="docker container prune -f"
+            desc="all stopped containers"
+            ;;
+        images)
+            cmd="docker image prune -a -f"
+            desc="all unused images"
+            ;;
+        volumes)
+            cmd="docker volume prune -f"
+            desc="all unused volumes"
+            ;;
+        networks)
+            cmd="docker network prune -f"
+            desc="all unused networks"
+            ;;
+    esac
+
+    if ui_yesno "Confirm" "Remove $desc?\n\nThis cannot be undone."; then
+        local output
+        output=$($cmd 2>&1)
+        log_info "Docker prune: $choice"
+        ui_msgbox "Prune Complete" "$output"
+    fi
+}
+
+# View Docker logs
+view_logs() {
+    if ! check_docker_installed; then
+        ui_msgbox "Info" "Docker is not installed"
+        return
+    fi
+
+    local choice
+    choice=$(ui_menu "Docker Logs" "Select log source:" \
+        "daemon" "Docker daemon logs" \
+        "container" "Container logs") || return
+
+    case "$choice" in
+        daemon)
+            local logs
+            logs=$(journalctl -u docker --no-pager -n 100 2>&1)
+            echo "$logs" > /tmp/docker_daemon_logs.txt
+            ui_textbox "Docker Daemon Logs" /tmp/docker_daemon_logs.txt
+            rm -f /tmp/docker_daemon_logs.txt
+            ;;
+        container)
+            if ! service_is_running docker; then
+                ui_msgbox "Info" "Docker service is not running"
+                return
+            fi
+
+            # Get list of containers
+            local containers_list=()
+            while IFS= read -r line; do
+                local name status
+                name=$(echo "$line" | awk '{print $1}')
+                status=$(echo "$line" | awk '{$1=""; print $0}' | xargs)
+                [[ -n "$name" ]] && containers_list+=("$name" "$status")
+            done < <(docker ps -a --format '{{.Names}} {{.Status}}' 2>/dev/null)
+
+            if [[ ${#containers_list[@]} -eq 0 ]]; then
+                ui_msgbox "Info" "No containers found"
+                return
+            fi
+
+            local container
+            container=$(ui_menu "Select Container" "Choose container:" "${containers_list[@]}") || return
+
+            local logs
+            logs=$(docker logs --tail 100 "$container" 2>&1)
+            echo "$logs" > /tmp/docker_container_logs.txt
+            ui_textbox "Logs: $container" /tmp/docker_container_logs.txt
+            rm -f /tmp/docker_container_logs.txt
+            ;;
+    esac
+}
+
 # Main module function
 module_main() {
     while true; do
         local choice
-        choice=$(ui_menu "Docker Installation" "Select operation:" \
+        choice=$(ui_menu "Docker" "Select operation:" \
+            "status" "Docker status" \
             "install" "Install Docker" \
             "uninstall" "Uninstall Docker" \
-            "status" "Docker status" \
+            "containers" "List containers" \
+            "images" "List images" \
+            "logs" "View logs" \
+            "prune" "Clean up unused data" \
             "service" "Manage Docker service") || break
 
         case "$choice" in
-            install)   install_docker ;;
-            uninstall) uninstall_docker ;;
-            status)    docker_status ;;
-            service)   manage_service ;;
+            status)     docker_status ;;
+            install)    install_docker ;;
+            uninstall)  uninstall_docker ;;
+            containers) list_containers ;;
+            images)     list_images ;;
+            logs)       view_logs ;;
+            prune)      prune_system ;;
+            service)    manage_service ;;
         esac
     done
 }

@@ -673,37 +673,131 @@ view_log() {
     fi
 }
 
+# Whitelist IP
+whitelist_ip() {
+    if ! require_root; then
+        return 1
+    fi
+
+    if ! check_fail2ban_installed; then
+        ui_msgbox "Error" "Fail2ban is not installed"
+        return 1
+    fi
+
+    local ip
+    ip=$(ui_inputbox "Whitelist IP" "Enter IP address to whitelist (never ban):") || return
+
+    if [[ -z "$ip" ]]; then
+        return
+    fi
+
+    # Add to ignoreip in jail.local
+    local jail_local="$JAIL_D/defaults.local"
+
+    if [[ -f "$jail_local" ]] && grep -q "^ignoreip" "$jail_local"; then
+        sed -i "s/^ignoreip = .*/& $ip/" "$jail_local"
+    else
+        echo -e "\n[DEFAULT]\nignoreip = 127.0.0.1/8 ::1 $ip" >> "$jail_local"
+    fi
+
+    fail2ban-client reload
+    log_info "Whitelisted IP: $ip"
+    ui_msgbox "Success" "IP $ip added to whitelist"
+}
+
+# Show statistics
+show_statistics() {
+    if ! check_fail2ban_installed; then
+        ui_msgbox "Error" "Fail2ban is not installed"
+        return 1
+    fi
+
+    local info=""
+    info+="=== Fail2ban Statistics ===\n\n"
+
+    # Get all jails
+    local jails
+    jails=$(fail2ban-client status | grep "Jail list:" | sed 's/.*://; s/,//g')
+
+    for jail in $jails; do
+        local status
+        status=$(fail2ban-client status "$jail" 2>&1)
+        local total_banned currently_banned
+        total_banned=$(echo "$status" | grep "Total banned:" | awk '{print $NF}')
+        currently_banned=$(echo "$status" | grep "Currently banned:" | awk '{print $NF}')
+        info+="$jail:\n"
+        info+="  Total banned:     $total_banned\n"
+        info+="  Currently banned: $currently_banned\n\n"
+    done
+
+    echo -e "$info" > /tmp/fail2ban_stats.txt
+    ui_textbox "Fail2ban Statistics" /tmp/fail2ban_stats.txt
+    rm -f /tmp/fail2ban_stats.txt
+}
+
+# Clear all bans
+clear_all_bans() {
+    if ! require_root; then
+        return 1
+    fi
+
+    if ! check_fail2ban_installed; then
+        ui_msgbox "Error" "Fail2ban is not installed"
+        return 1
+    fi
+
+    if ! ui_yesno "Confirm" "Unban all IPs from all jails?"; then
+        return
+    fi
+
+    local jails
+    jails=$(fail2ban-client status | grep "Jail list:" | sed 's/.*://; s/,//g')
+
+    for jail in $jails; do
+        fail2ban-client set "$jail" unbanip --all 2>/dev/null
+    done
+
+    log_info "Cleared all fail2ban bans"
+    ui_msgbox "Success" "All IPs have been unbanned from all jails"
+}
+
 # Main module function
 module_main() {
     while true; do
         local choice
         choice=$(ui_menu "Fail2ban" "Select operation:" \
-            "quick" "Quick setup" \
             "status" "Show status" \
+            "statistics" "Show statistics" \
             "jail-status" "Show jail status" \
             "banned" "Show banned IPs" \
             "install" "Install fail2ban" \
             "uninstall" "Uninstall fail2ban" \
+            "quick" "Quick setup" \
             "defaults" "Configure defaults" \
             "enable" "Enable jail" \
             "disable" "Disable jail" \
             "ban" "Ban IP manually" \
             "unban" "Unban IP" \
+            "clear-all" "Clear all bans" \
+            "whitelist" "Whitelist IP" \
             "log" "View log" \
             "restart" "Restart service") || break
 
         case "$choice" in
-            quick)       quick_setup ;;
             status)      show_status ;;
+            statistics)  show_statistics ;;
             jail-status) show_jail_status ;;
             banned)      show_banned ;;
             install)     install_fail2ban ;;
             uninstall)   uninstall_fail2ban ;;
+            quick)       quick_setup ;;
             defaults)    configure_defaults ;;
             enable)      enable_jail ;;
             disable)     disable_jail ;;
             ban)         ban_ip ;;
             unban)       unban_ip ;;
+            clear-all)   clear_all_bans ;;
+            whitelist)   whitelist_ip ;;
             log)         view_log ;;
             restart)     restart_service ;;
         esac

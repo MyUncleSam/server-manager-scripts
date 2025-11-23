@@ -600,6 +600,91 @@ restart_networking() {
     fi
 }
 
+# Test connectivity
+test_connectivity() {
+    local info=""
+    info+="=== Connectivity Test ===\n\n"
+
+    # Test DNS resolution
+    info+="DNS Resolution:\n"
+    if host google.com &>/dev/null; then
+        info+="  google.com: OK\n"
+    else
+        info+="  google.com: FAILED\n"
+    fi
+
+    # Test ping to common hosts
+    info+="\nPing Tests:\n"
+    for host in 8.8.8.8 1.1.1.1 google.com; do
+        if ping -c 1 -W 2 "$host" &>/dev/null; then
+            info+="  $host: OK\n"
+        else
+            info+="  $host: FAILED\n"
+        fi
+    done
+
+    # Test HTTP connectivity
+    info+="\nHTTP Tests:\n"
+    for url in https://google.com https://github.com; do
+        if curl -sSf --max-time 5 "$url" &>/dev/null; then
+            info+="  $url: OK\n"
+        else
+            info+="  $url: FAILED\n"
+        fi
+    done
+
+    echo -e "$info" > /tmp/connectivity_test.txt
+    ui_textbox "Connectivity Test" /tmp/connectivity_test.txt
+    rm -f /tmp/connectivity_test.txt
+}
+
+# Show routing table
+show_routing_table() {
+    local info=""
+    info+="=== IPv4 Routing Table ===\n\n"
+    info+="$(ip -4 route show)\n\n"
+    info+="=== IPv6 Routing Table ===\n\n"
+    info+="$(ip -6 route show 2>/dev/null)\n"
+
+    echo -e "$info" > /tmp/routing_table.txt
+    ui_textbox "Routing Table" /tmp/routing_table.txt
+    rm -f /tmp/routing_table.txt
+}
+
+# Add static route
+add_static_route() {
+    if ! require_root; then
+        return 1
+    fi
+
+    local dest
+    dest=$(ui_inputbox "Destination" "Enter destination network (e.g., 10.0.0.0/8):") || return
+
+    local gateway
+    gateway=$(ui_inputbox "Gateway" "Enter gateway IP:") || return
+
+    local iface
+    iface=$(select_interface) || return
+
+    if ip route add "$dest" via "$gateway" dev "$iface" 2>&1; then
+        log_info "Added route: $dest via $gateway dev $iface"
+        ui_msgbox "Success" "Route added (temporary).\n\nTo make permanent, add to netplan config."
+    else
+        ui_msgbox "Error" "Failed to add route"
+    fi
+}
+
+# Manage DNS in resolv.conf
+manage_dns_resolv() {
+    local info=""
+    info+="=== Current DNS Configuration ===\n\n"
+    info+="$(cat /etc/resolv.conf)\n"
+
+    echo -e "$info" > /tmp/dns_config.txt
+    ui_textbox "DNS Configuration" /tmp/dns_config.txt
+    rm -f /tmp/dns_config.txt
+}
+
 # Quick setup - configure interface with common settings
 quick_setup() {
     if ! require_root; then
@@ -654,23 +739,31 @@ module_main() {
         local choice
         choice=$(ui_menu "Network" "Select operation:" \
             "status" "Show network status" \
+            "test" "Test connectivity" \
+            "routes" "Show routing table" \
+            "dns" "View DNS configuration" \
+            "config" "Show netplan configuration" \
             "quick" "Quick setup" \
             "ipv4" "Configure IPv4" \
             "ipv6" "Configure IPv6" \
-            "disable-ipv6" "Disable IPv6 system-wide" \
+            "add-route" "Add static route" \
             "enable-ipv6" "Enable IPv6 system-wide" \
-            "config" "Show netplan configuration" \
+            "disable-ipv6" "Disable IPv6 system-wide" \
             "apply" "Apply netplan configuration" \
             "restart" "Restart networking") || break
 
         case "$choice" in
             status)       show_status ;;
+            test)         test_connectivity ;;
+            routes)       show_routing_table ;;
+            dns)          manage_dns_resolv ;;
+            config)       show_netplan_config ;;
             quick)        quick_setup ;;
             ipv4)         configure_ipv4 ;;
             ipv6)         configure_ipv6 ;;
-            disable-ipv6) disable_ipv6_system ;;
+            add-route)    add_static_route ;;
             enable-ipv6)  enable_ipv6_system ;;
-            config)       show_netplan_config ;;
+            disable-ipv6) disable_ipv6_system ;;
             apply)        apply_netplan ;;
             restart)      restart_networking ;;
         esac

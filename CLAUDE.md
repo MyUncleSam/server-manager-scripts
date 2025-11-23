@@ -33,7 +33,8 @@ ubuntu-scripts/
 │   ├── ufw.sh             # UFW firewall management
 │   ├── ufw-docker.sh      # UFW Docker integration
 │   ├── unattended-upgrades.sh # Automatic updates
-│   └── user.sh            # User management
+│   ├── user.sh            # User management
+│   └── vm-guest.sh        # VM guest agent installation
 └── CLAUDE.md              # This file
 ```
 

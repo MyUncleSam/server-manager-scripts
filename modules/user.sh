@@ -274,21 +274,219 @@ user_info() {
     rm -f /tmp/user_info.txt
 }
 
+# Change user password
+change_password() {
+    if ! require_root; then
+        return 1
+    fi
+
+    # Get list of users
+    local users_list=()
+    users_list+=("root" "Root user")
+    while IFS= read -r user; do
+        users_list+=("$user" "UID: $(id -u "$user")")
+    done < <(get_regular_users)
+
+    # Select user
+    local username
+    username=$(ui_menu "Change Password" "Select user:" "${users_list[@]}") || return
+
+    # Get new password
+    local password
+    password=$(ui_passwordbox "Change Password" "Enter new password for $username:") || return
+
+    if [[ -z "$password" ]]; then
+        ui_msgbox "Error" "Password cannot be empty"
+        return 1
+    fi
+
+    # Confirm password
+    local password_confirm
+    password_confirm=$(ui_passwordbox "Change Password" "Confirm password:") || return
+
+    if [[ "$password" != "$password_confirm" ]]; then
+        ui_msgbox "Error" "Passwords do not match"
+        return 1
+    fi
+
+    # Change password
+    if echo "$username:$password" | chpasswd; then
+        log_info "Changed password for user: $username"
+        ui_msgbox "Success" "Password changed for '$username'"
+    else
+        log_error "Failed to change password for: $username"
+        ui_msgbox "Error" "Failed to change password"
+    fi
+}
+
+# Lock user account
+lock_user() {
+    if ! require_root; then
+        return 1
+    fi
+
+    # Get list of unlocked users
+    local users_list=()
+    while IFS= read -r user; do
+        local status
+        status=$(passwd -S "$user" 2>/dev/null | awk '{print $2}')
+        if [[ "$status" != "L" ]]; then
+            users_list+=("$user" "Status: Active")
+        fi
+    done < <(get_regular_users)
+
+    if [[ ${#users_list[@]} -eq 0 ]]; then
+        ui_msgbox "Info" "No unlocked users found"
+        return
+    fi
+
+    # Select user
+    local username
+    username=$(ui_menu "Lock User" "Select user to lock:" "${users_list[@]}") || return
+
+    if ui_yesno "Confirm" "Lock user account '$username'?\n\nThe user will not be able to log in."; then
+        if usermod -L "$username"; then
+            log_info "Locked user account: $username"
+            ui_msgbox "Success" "User '$username' has been locked"
+        else
+            ui_msgbox "Error" "Failed to lock user"
+        fi
+    fi
+}
+
+# Unlock user account
+unlock_user() {
+    if ! require_root; then
+        return 1
+    fi
+
+    # Get list of locked users
+    local users_list=()
+    while IFS= read -r user; do
+        local status
+        status=$(passwd -S "$user" 2>/dev/null | awk '{print $2}')
+        if [[ "$status" == "L" ]]; then
+            users_list+=("$user" "Status: Locked")
+        fi
+    done < <(get_regular_users)
+
+    if [[ ${#users_list[@]} -eq 0 ]]; then
+        ui_msgbox "Info" "No locked users found"
+        return
+    fi
+
+    # Select user
+    local username
+    username=$(ui_menu "Unlock User" "Select user to unlock:" "${users_list[@]}") || return
+
+    if usermod -U "$username"; then
+        log_info "Unlocked user account: $username"
+        ui_msgbox "Success" "User '$username' has been unlocked"
+    else
+        ui_msgbox "Error" "Failed to unlock user"
+    fi
+}
+
+# Set user shell
+set_shell() {
+    if ! require_root; then
+        return 1
+    fi
+
+    # Get list of users
+    local users_list=()
+    while IFS= read -r user; do
+        local shell
+        shell=$(getent passwd "$user" | cut -d: -f7)
+        users_list+=("$user" "Shell: $shell")
+    done < <(get_regular_users)
+
+    if [[ ${#users_list[@]} -eq 0 ]]; then
+        ui_msgbox "Info" "No regular users found"
+        return
+    fi
+
+    # Select user
+    local username
+    username=$(ui_menu "Set Shell" "Select user:" "${users_list[@]}") || return
+
+    # Get available shells
+    local shells_list=()
+    while IFS= read -r shell; do
+        [[ -x "$shell" ]] && shells_list+=("$shell" "$(basename "$shell")")
+    done < /etc/shells
+
+    # Add nologin option
+    shells_list+=("/usr/sbin/nologin" "Disable login")
+
+    # Select shell
+    local new_shell
+    new_shell=$(ui_menu "Set Shell" "Select shell for $username:" "${shells_list[@]}") || return
+
+    if usermod -s "$new_shell" "$username"; then
+        log_info "Changed shell for $username to $new_shell"
+        ui_msgbox "Success" "Shell changed to: $new_shell"
+    else
+        ui_msgbox "Error" "Failed to change shell"
+    fi
+}
+
+# Force password change on next login
+force_password_change() {
+    if ! require_root; then
+        return 1
+    fi
+
+    # Get list of users
+    local users_list=()
+    while IFS= read -r user; do
+        users_list+=("$user" "UID: $(id -u "$user")")
+    done < <(get_regular_users)
+
+    if [[ ${#users_list[@]} -eq 0 ]]; then
+        ui_msgbox "Info" "No regular users found"
+        return
+    fi
+
+    # Select user
+    local username
+    username=$(ui_menu "Force Password Change" "Select user:" "${users_list[@]}") || return
+
+    if ui_yesno "Confirm" "Force '$username' to change password on next login?"; then
+        if chage -d 0 "$username"; then
+            log_info "Forced password change for: $username"
+            ui_msgbox "Success" "User '$username' must change password on next login"
+        else
+            ui_msgbox "Error" "Failed to set password expiry"
+        fi
+    fi
+}
+
 # Main module function
 module_main() {
     while true; do
         local choice
-        choice=$(ui_menu "User Management" "Select operation:" \
+        choice=$(ui_menu "User" "Select operation:" \
             "add" "Add new user" \
-            "modify" "Modify user groups" \
             "delete" "Delete user" \
-            "info" "View user information") || break
+            "expire" "Force password change" \
+            "info" "View user information" \
+            "lock" "Lock user account" \
+            "modify" "Modify user groups" \
+            "password" "Change password" \
+            "shell" "Set user shell" \
+            "unlock" "Unlock user account") || break
 
         case "$choice" in
-            add)    add_user ;;
-            modify) modify_user_groups ;;
-            delete) delete_user ;;
-            info)   user_info ;;
+            add)      add_user ;;
+            delete)   delete_user ;;
+            expire)   force_password_change ;;
+            info)     user_info ;;
+            lock)     lock_user ;;
+            modify)   modify_user_groups ;;
+            password) change_password ;;
+            shell)    set_shell ;;
+            unlock)   unlock_user ;;
         esac
     done
 }

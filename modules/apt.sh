@@ -480,38 +480,143 @@ show_cache_size() {
     rm -f /tmp/apt_cache_info.txt
 }
 
+# Hold package
+hold_package() {
+    if ! require_root; then
+        return 1
+    fi
+
+    local package
+    package=$(ui_inputbox "Hold Package" "Enter package name to hold (prevent upgrades):") || return
+
+    if [[ -z "$package" ]]; then
+        return
+    fi
+
+    if apt-mark hold "$package"; then
+        log_info "Held package: $package"
+        ui_msgbox "Success" "Package '$package' is now held and will not be upgraded"
+    else
+        ui_msgbox "Error" "Failed to hold package"
+    fi
+}
+
+# Unhold package
+unhold_package() {
+    if ! require_root; then
+        return 1
+    fi
+
+    # Get held packages
+    local held
+    held=$(apt-mark showhold)
+
+    if [[ -z "$held" ]]; then
+        ui_msgbox "Info" "No packages are currently held"
+        return
+    fi
+
+    local packages_list=()
+    while IFS= read -r pkg; do
+        packages_list+=("$pkg" "held")
+    done <<< "$held"
+
+    local package
+    package=$(ui_menu "Unhold Package" "Select package to unhold:" "${packages_list[@]}") || return
+
+    if apt-mark unhold "$package"; then
+        log_info "Unheld package: $package"
+        ui_msgbox "Success" "Package '$package' can now be upgraded"
+    else
+        ui_msgbox "Error" "Failed to unhold package"
+    fi
+}
+
+# Show package dependencies
+show_dependencies() {
+    local package
+    package=$(ui_inputbox "Dependencies" "Enter package name:") || return
+
+    if [[ -z "$package" ]]; then
+        return
+    fi
+
+    local deps
+    deps=$(apt-cache depends "$package" 2>&1)
+
+    echo "$deps" > /tmp/apt_deps.txt
+    ui_textbox "Dependencies: $package" /tmp/apt_deps.txt
+    rm -f /tmp/apt_deps.txt
+}
+
+# Verify packages
+verify_packages() {
+    if ! require_root; then
+        return 1
+    fi
+
+    if ! command_exists debsums; then
+        if ui_yesno "Install debsums" "debsums is required to verify packages.\n\nInstall it now?"; then
+            install_packages debsums
+        else
+            return
+        fi
+    fi
+
+    ui_infobox "Verifying" "Checking package integrity..."
+
+    local result
+    result=$(debsums -s 2>&1)
+
+    if [[ -z "$result" ]]; then
+        ui_msgbox "Success" "All package files verified successfully"
+    else
+        echo "$result" > /tmp/debsums_result.txt
+        ui_textbox "Verification Issues" /tmp/debsums_result.txt
+        rm -f /tmp/debsums_result.txt
+    fi
+}
+
 # Main module function
 module_main() {
     while true; do
         local choice
         choice=$(ui_menu "APT" "Select operation:" \
+            "cache" "Show cache info" \
             "updates" "Check and install updates" \
             "refresh" "Update package lists" \
-            "common" "Install common packages" \
             "install" "Install package" \
             "remove" "Remove package" \
+            "common" "Install common packages" \
             "search" "Search packages" \
             "info" "Show package info" \
             "list" "List installed packages" \
+            "deps" "Show dependencies" \
+            "hold" "Hold package (prevent upgrade)" \
+            "unhold" "Unhold package" \
+            "ppa" "Add PPA repository" \
             "cleanup" "Clean up APT cache" \
             "fix" "Fix broken packages" \
-            "ppa" "Add PPA repository" \
-            "cache" "Show cache info" \
+            "verify" "Verify package integrity" \
             "history" "Show APT history") || break
 
         case "$choice" in
+            cache)   show_cache_size ;;
             updates) install_updates ;;
             refresh) update_package_lists ;;
-            common)  install_common_packages ;;
             install) install_package ;;
             remove)  remove_package ;;
+            common)  install_common_packages ;;
             search)  search_packages ;;
             info)    show_package_info ;;
             list)    list_installed ;;
+            deps)    show_dependencies ;;
+            hold)    hold_package ;;
+            unhold)  unhold_package ;;
+            ppa)     add_ppa ;;
             cleanup) cleanup_apt ;;
             fix)     fix_broken ;;
-            ppa)     add_ppa ;;
-            cache)   show_cache_size ;;
+            verify)  verify_packages ;;
             history) show_apt_history ;;
         esac
     done

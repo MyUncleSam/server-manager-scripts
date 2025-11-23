@@ -175,25 +175,121 @@ show_security_info() {
     rm -f /tmp/security_info.txt
 }
 
+# Show hardware information
+show_hardware_info() {
+    local info=""
+    info+="=== Hardware Information ===\n\n"
+
+    # CPU
+    info+="--- CPU ---\n"
+    info+="$(lscpu | grep -E "Model name|Architecture|CPU\(s\):|Thread|Core|Socket" 2>&1)\n\n"
+
+    # Memory
+    info+="--- Memory ---\n"
+    info+="$(free -h 2>&1)\n\n"
+
+    # Disks
+    info+="--- Storage ---\n"
+    info+="$(lsblk -d -o NAME,SIZE,TYPE,MODEL 2>&1)\n\n"
+
+    # PCI devices
+    if command_exists lspci; then
+        info+="--- PCI Devices ---\n"
+        info+="$(lspci 2>&1 | head -20)\n"
+    fi
+
+    echo -e "$info" > /tmp/hardware_info.txt
+    ui_textbox "Hardware Information" /tmp/hardware_info.txt
+    rm -f /tmp/hardware_info.txt
+}
+
+# Show temperature
+show_temperature() {
+    if ! command_exists sensors; then
+        if ui_yesno "Install lm-sensors" "lm-sensors is required to read temperatures.\n\nInstall it now?"; then
+            if require_root; then
+                install_packages lm-sensors
+                sensors-detect --auto >/dev/null 2>&1
+            fi
+        else
+            return
+        fi
+    fi
+
+    local temps
+    temps=$(sensors 2>&1)
+
+    echo "$temps" > /tmp/temperatures.txt
+    ui_textbox "System Temperatures" /tmp/temperatures.txt
+    rm -f /tmp/temperatures.txt
+}
+
+# Export system report
+export_report() {
+    local export_file
+    export_file=$(ui_inputbox "Export Report" "Enter export file path:" "/root/system-report-$(date +%Y%m%d).txt") || return
+
+    {
+        echo "System Report - $(date)"
+        echo "=========================================="
+        echo ""
+        echo "=== System ==="
+        uname -a
+        echo ""
+        echo "=== Hostname ==="
+        hostname -f
+        echo ""
+        echo "=== Uptime ==="
+        uptime
+        echo ""
+        echo "=== Memory ==="
+        free -h
+        echo ""
+        echo "=== Disk Usage ==="
+        df -h
+        echo ""
+        echo "=== Network Interfaces ==="
+        ip -br addr
+        echo ""
+        echo "=== Listening Ports ==="
+        ss -tlnp
+        echo ""
+        echo "=== Running Services ==="
+        systemctl list-units --type=service --state=running --no-pager
+        echo ""
+        echo "=== Top Processes ==="
+        ps aux --sort=-%mem | head -15
+    } > "$export_file"
+
+    log_info "Exported system report to: $export_file"
+    ui_msgbox "Success" "System report exported to:\n$export_file"
+}
+
 # Main module function
 module_main() {
     while true; do
         local choice
         choice=$(ui_menu "System Information" "Select information to view:" \
             "basic" "Basic system information" \
+            "hardware" "Hardware information" \
+            "temperature" "System temperatures" \
+            "processes" "Top processes" \
             "services" "Running services" \
             "ports" "Listening ports" \
-            "processes" "Top processes" \
             "disk_io" "Disk I/O statistics" \
-            "security" "Security information") || break
+            "security" "Security information" \
+            "export" "Export system report") || break
 
         case "$choice" in
-            basic)     show_basic_info ;;
-            services)  show_services ;;
-            ports)     show_ports ;;
-            processes) show_processes ;;
-            disk_io)   show_disk_io ;;
-            security)  show_security_info ;;
+            basic)       show_basic_info ;;
+            hardware)    show_hardware_info ;;
+            temperature) show_temperature ;;
+            processes)   show_processes ;;
+            services)    show_services ;;
+            ports)       show_ports ;;
+            disk_io)     show_disk_io ;;
+            security)    show_security_info ;;
+            export)      export_report ;;
         esac
     done
 }
