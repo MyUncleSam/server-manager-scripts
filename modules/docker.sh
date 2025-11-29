@@ -395,6 +395,230 @@ view_logs() {
     esac
 }
 
+# List networks
+list_networks() {
+    if ! check_docker_installed; then
+        ui_msgbox "Info" "Docker is not installed"
+        return
+    fi
+
+    if ! service_is_running docker; then
+        ui_msgbox "Info" "Docker service is not running"
+        return
+    fi
+
+    local info=""
+    info+="=== Docker Networks ===\n\n"
+    info+="$(docker network ls --format 'table {{.Name}}\t{{.Driver}}\t{{.Scope}}' 2>&1)\n"
+
+    echo -e "$info" > /tmp/docker_networks.txt
+    ui_textbox "Docker Networks" /tmp/docker_networks.txt
+    rm -f /tmp/docker_networks.txt
+}
+
+# Create a Docker network
+add_network() {
+    if ! check_docker_installed; then
+        ui_msgbox "Info" "Docker is not installed"
+        return
+    fi
+
+    if ! service_is_running docker; then
+        ui_msgbox "Info" "Docker service is not running"
+        return
+    fi
+
+    if ! require_root; then
+        return 1
+    fi
+
+    # Get network configuration via form
+    local result
+    result=$(ui_mixedform "Create Docker Network" \
+        "Network Name:" 1 1 "Internal" 1 20 30 50 0 \
+        "Driver:" 2 1 "bridge" 2 20 30 50 0 \
+        "IPv4 Subnet:" 3 1 "172.20.0.0/16" 3 20 30 50 0 \
+        "IPv4 Gateway:" 4 1 "172.20.0.1" 4 20 30 50 0) || return
+
+    # Parse form results (newline separated)
+    local network_name driver ipv4_subnet ipv4_gateway
+    network_name=$(echo "$result" | sed -n '1p' | xargs)
+    driver=$(echo "$result" | sed -n '2p' | xargs)
+    ipv4_subnet=$(echo "$result" | sed -n '3p' | xargs)
+    ipv4_gateway=$(echo "$result" | sed -n '4p' | xargs)
+
+    # Validate required fields
+    if [[ -z "$network_name" ]] || [[ -z "$driver" ]] || [[ -z "$ipv4_subnet" ]] || [[ -z "$ipv4_gateway" ]]; then
+        ui_msgbox "Error" "All IPv4 fields are required"
+        return 1
+    fi
+
+    # Check if network already exists
+    if docker network ls --format '{{.Name}}' | grep -q "^${network_name}$"; then
+        ui_msgbox "Error" "Network '$network_name' already exists"
+        return 1
+    fi
+
+    # Ask about IPv6
+    local enable_ipv6="no"
+    local ipv6_subnet=""
+    local ipv6_gateway=""
+
+    if ui_yesno "IPv6 Configuration" "Do you want to enable IPv6 for this network?"; then
+        enable_ipv6="yes"
+
+        # Get IPv6 configuration
+        local ipv6_result
+        ipv6_result=$(ui_form "IPv6 Configuration" \
+            "IPv6 Subnet:" 1 1 "fd00:dead:beaf::/48" 1 20 40 50 \
+            "IPv6 Gateway:" 2 1 "fd00:dead:beaf::1" 2 20 40 50) || return
+
+        ipv6_subnet=$(echo "$ipv6_result" | sed -n '1p' | xargs)
+        ipv6_gateway=$(echo "$ipv6_result" | sed -n '2p' | xargs)
+
+        if [[ -z "$ipv6_subnet" ]] || [[ -z "$ipv6_gateway" ]]; then
+            ui_msgbox "Error" "All IPv6 fields are required when IPv6 is enabled"
+            return 1
+        fi
+    fi
+
+    # Build confirmation message
+    local confirm_msg="Network Name:  $network_name\n"
+    confirm_msg+="Driver:        $driver\n"
+    confirm_msg+="IPv4 Subnet:   $ipv4_subnet\n"
+    confirm_msg+="IPv4 Gateway:  $ipv4_gateway\n"
+    if [[ "$enable_ipv6" == "yes" ]]; then
+        confirm_msg+="IPv6:          Enabled\n"
+        confirm_msg+="IPv6 Subnet:   $ipv6_subnet\n"
+        confirm_msg+="IPv6 Gateway:  $ipv6_gateway\n"
+    else
+        confirm_msg+="IPv6:          Disabled\n"
+    fi
+    confirm_msg+="\nCreate this network?"
+
+    if ! ui_yesno "Confirm Network Creation" "$confirm_msg"; then
+        return
+    fi
+
+    # Build docker network create command
+    local cmd="docker network create"
+    cmd+=" --driver=$driver"
+    cmd+=" --subnet=$ipv4_subnet"
+    cmd+=" --gateway=$ipv4_gateway"
+
+    if [[ "$enable_ipv6" == "yes" ]]; then
+        cmd+=" --ipv6"
+        cmd+=" --subnet=$ipv6_subnet"
+        cmd+=" --gateway=$ipv6_gateway"
+    fi
+
+    cmd+=" $network_name"
+
+    # Create network
+    ui_infobox "Creating Network" "Creating Docker network '$network_name'..."
+    sleep 1
+
+    local output
+    output=$($cmd 2>&1)
+    local exit_code=$?
+
+    if [[ $exit_code -eq 0 ]]; then
+        log_info "Created Docker network: $network_name"
+        ui_msgbox "Success" "Docker network '$network_name' created successfully!"
+    else
+        log_error "Failed to create Docker network: $network_name - $output"
+        ui_msgbox "Error" "Failed to create network:\n\n$output"
+        return 1
+    fi
+}
+
+# Remove a Docker network
+remove_network() {
+    if ! check_docker_installed; then
+        ui_msgbox "Info" "Docker is not installed"
+        return
+    fi
+
+    if ! service_is_running docker; then
+        ui_msgbox "Info" "Docker service is not running"
+        return
+    fi
+
+    if ! require_root; then
+        return 1
+    fi
+
+    # Get list of networks (excluding default ones)
+    local networks_list=()
+    while IFS= read -r line; do
+        local name driver scope
+        name=$(echo "$line" | awk '{print $1}')
+        driver=$(echo "$line" | awk '{print $2}')
+        scope=$(echo "$line" | awk '{print $3}')
+
+        # Skip default networks
+        if [[ "$name" != "bridge" && "$name" != "host" && "$name" != "none" ]]; then
+            networks_list+=("$name" "Driver: $driver, Scope: $scope")
+        fi
+    done < <(docker network ls --format '{{.Name}} {{.Driver}} {{.Scope}}' 2>/dev/null | tail -n +2)
+
+    if [[ ${#networks_list[@]} -eq 0 ]]; then
+        ui_msgbox "Info" "No custom networks found to remove"
+        return
+    fi
+
+    local network
+    network=$(ui_menu "Remove Network" "Select network to remove:" "${networks_list[@]}") || return
+
+    # Check if network is in use
+    local in_use
+    in_use=$(docker network inspect "$network" --format '{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null)
+
+    if [[ -n "$in_use" ]]; then
+        if ! ui_yesno "Warning" "Network '$network' is in use by containers:\n$in_use\n\nAre you sure you want to remove it?"; then
+            return
+        fi
+    else
+        if ! ui_yesno "Confirm" "Remove network '$network'?"; then
+            return
+        fi
+    fi
+
+    # Remove network
+    ui_infobox "Removing Network" "Removing Docker network '$network'..."
+    sleep 1
+
+    local output
+    output=$(docker network rm "$network" 2>&1)
+    local exit_code=$?
+
+    if [[ $exit_code -eq 0 ]]; then
+        log_info "Removed Docker network: $network"
+        ui_msgbox "Success" "Docker network '$network' removed successfully!"
+    else
+        log_error "Failed to remove Docker network: $network - $output"
+        ui_msgbox "Error" "Failed to remove network:\n\n$output"
+        return 1
+    fi
+}
+
+# Manage Docker networks
+manage_networks() {
+    while true; do
+        local choice
+        choice=$(ui_menu "Docker Networks" "Select operation:" \
+            "list" "List networks" \
+            "add" "Add network" \
+            "remove" "Remove network") || break
+
+        case "$choice" in
+            list)   list_networks ;;
+            add)    add_network ;;
+            remove) remove_network ;;
+        esac
+    done
+}
+
 # Main module function
 module_main() {
     while true; do
@@ -405,6 +629,7 @@ module_main() {
             "uninstall" "Uninstall Docker" \
             "containers" "List containers" \
             "images" "List images" \
+            "networks" "Manage networks" \
             "logs" "View logs" \
             "prune" "Clean up unused data" \
             "service" "Manage Docker service") || break
@@ -415,6 +640,7 @@ module_main() {
             uninstall)  uninstall_docker ;;
             containers) list_containers ;;
             images)     list_images ;;
+            networks)   manage_networks ;;
             logs)       view_logs ;;
             prune)      prune_system ;;
             service)    manage_service ;;
