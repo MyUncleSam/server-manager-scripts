@@ -9,8 +9,12 @@ module_info() {
     echo "Custom Scripts|Install custom utility scripts"
 }
 
-# Path to custom scripts directory
-SCRIPTS_DIR="/opt/claude/server-manager/modules-files/custom-scripts"
+# Get the directory where this script is located
+MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$MODULE_DIR/.." && pwd)"
+
+# Path to custom scripts directory (relative to project root)
+SCRIPTS_DIR="$PROJECT_ROOT/modules-files/custom-scripts"
 INSTALL_DIR="/usr/local/bin"
 
 # Get list of available scripts

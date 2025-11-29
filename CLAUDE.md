@@ -51,6 +51,21 @@ When a module needs to store data files (templates, scripts, configurations, etc
 
 This keeps the project organized and prevents conflicts between modules.
 
+### Accessing Module Files
+
+Always use relative paths based on the module's location to ensure portability. Use this pattern at the top of your module:
+
+```bash
+# Get the directory where this script is located
+MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$MODULE_DIR/.." && pwd)"
+
+# Path to module files directory
+MODULE_FILES_DIR="$PROJECT_ROOT/modules-files/your-module-name"
+```
+
+This ensures the module works regardless of where the repository is cloned.
+
 ## Creating a New Module
 
 ### Module Template
