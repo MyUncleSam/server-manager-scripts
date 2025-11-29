@@ -38,7 +38,8 @@ ubuntu-scripts/
 │   └── vm-guest.sh        # VM guest agent installation
 ├── modules-files/         # Module data files (each module uses its own subfolder)
 │   └── custom-scripts/    # Custom scripts for installation
-│       └── dc             # Docker compose shortcut script
+│       ├── dc             # Docker compose shortcut script
+│       └── dc.description # Description for dc script
 └── CLAUDE.md              # This file
 ```
 
@@ -65,6 +66,23 @@ MODULE_FILES_DIR="$PROJECT_ROOT/modules-files/your-module-name"
 ```
 
 This ensures the module works regardless of where the repository is cloned.
+
+### Custom Scripts Description Files
+
+For the custom-scripts module, each script can have an optional `.description` file that provides information about what the script does:
+
+- Script: `dc` → Description: `dc.description`
+- Script: `example` → Description: `example.description`
+
+The description file should contain a single line of text describing the script's purpose. This description will be shown in the UI when listing, installing, or viewing scripts.
+
+**Important:** The `.description` files are not executable scripts and will be automatically excluded from the list of available scripts.
+
+Example:
+```bash
+# File: modules-files/custom-scripts/dc.description
+Docker Compose shortcut - Execute docker compose commands with single letters (d=down, u=up, l=logs, p=ps, r=restart, etc.)
+```
 
 ## Creating a New Module
 

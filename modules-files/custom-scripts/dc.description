@@ -1,0 +1,1 @@
+Execute docker compose commands using single-letter shortcuts (d=down, u=up, l=logs, p=ps, r=restart)

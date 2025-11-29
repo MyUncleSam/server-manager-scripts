@@ -17,13 +17,25 @@ PROJECT_ROOT="$(cd "$MODULE_DIR/.." && pwd)"
 SCRIPTS_DIR="$PROJECT_ROOT/modules-files/custom-scripts"
 INSTALL_DIR="/usr/local/bin"
 
-# Get list of available scripts
+# Get list of available scripts (excludes .description files)
 get_available_scripts() {
     if [[ ! -d "$SCRIPTS_DIR" ]]; then
         return 1
     fi
 
-    find "$SCRIPTS_DIR" -maxdepth 1 -type f -executable -o -type f ! -name ".*" | sort
+    find "$SCRIPTS_DIR" -maxdepth 1 -type f ! -name ".*" ! -name "*.description" | sort
+}
+
+# Get description for a script
+get_script_description() {
+    local script_name="$1"
+    local desc_file="$SCRIPTS_DIR/${script_name}.description"
+
+    if [[ -f "$desc_file" ]]; then
+        cat "$desc_file"
+    else
+        echo "No description available"
+    fi
 }
 
 # Check if script is installed
@@ -56,7 +68,11 @@ list_scripts() {
             status="INSTALLED"
         fi
 
-        info+="  $script_name - $status\n"
+        local description
+        description=$(get_script_description "$script_name")
+
+        info+="[$status] $script_name\n"
+        info+="  Description: $description\n\n"
         ((count++))
     done < <(get_available_scripts)
 
@@ -88,12 +104,15 @@ install_script() {
         local script_name
         script_name=$(basename "$script_path")
 
-        local status="Not installed"
+        local description
+        description=$(get_script_description "$script_name")
+
+        local status="off"
         if is_installed "$script_name"; then
-            status="Already installed"
+            status="on"
         fi
 
-        scripts_list+=("$script_name" "$status")
+        scripts_list+=("$script_name" "$description" "$status")
     done < <(get_available_scripts)
 
     if [[ ${#scripts_list[@]} -eq 0 ]]; then
@@ -161,7 +180,9 @@ uninstall_script() {
         script_name=$(basename "$script_path")
 
         if is_installed "$script_name"; then
-            scripts_list+=("$script_name" "Installed in $INSTALL_DIR")
+            local description
+            description=$(get_script_description "$script_name")
+            scripts_list+=("$script_name" "$description" "on")
         fi
     done < <(get_available_scripts)
 
@@ -226,12 +247,10 @@ view_script() {
         local script_name
         script_name=$(basename "$script_path")
 
-        local status="Not installed"
-        if is_installed "$script_name"; then
-            status="Installed"
-        fi
+        local description
+        description=$(get_script_description "$script_name")
 
-        scripts_list+=("$script_name" "$status")
+        scripts_list+=("$script_name" "$description")
     done < <(get_available_scripts)
 
     if [[ ${#scripts_list[@]} -eq 0 ]]; then
