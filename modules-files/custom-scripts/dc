@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# Define a usage function
+usage() {
+    echo "Usage: dc [options]"
+    echo "Options:"
+    echo "  d - docker compose down"
+    echo "  e - docker compose exec [container_name] [command]"
+    echo "  k - docker compose kill"
+    echo "  l - docker compose logs -f --tail=1000"
+    echo "  p - docker compose ps"
+    echo "  r - docker compose restart"
+    echo "  t - docker compose top"
+    echo "  u - docker compose up -d"
+    echo "  v - docker compose volumes"
+}
+
+# Check if the correct number of arguments is provided
+if [ "$#" -lt 1 ]; then
+    usage
+    exit 1
+fi
+
+# Iterate over each character in the input string
+input_string="$1"
+for (( i=0; i<${#input_string}; i++ )); do
+    char="${input_string:$i:1}"
+    case $char in
+        d) echo "Executing: docker compose down" && docker compose down ;;
+        e) echo "Executing: docker compose exec ${@:2}" &&  docker compose exec ${@:2} ;;
+        k) echo "Executing: docker compose kill" && docker compose kill ;;
+        l) echo "Executing: docker compose logs -f --tail=1000" && docker compose logs -f --tail=1000 ;;
+        p) echo "Executing: docker compose ps" && docker compose ps ;;
+        r) echo "Executing: docker compose restart"  && docker compose restart  ;;
+        t) echo "Executing: docker compose top" && docker compose top ;;
+        u) echo "Executing: docker compose up -d" && docker compose up -d ;;
+        v) echo "Executing: docker volumes" && docker compose volumes ;;
+        *) echo "Unknown option: $char" >&2; usage; exit 1 ;;
+    esac
+done

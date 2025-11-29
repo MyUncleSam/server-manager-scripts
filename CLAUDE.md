@@ -21,6 +21,7 @@ ubuntu-scripts/
 │   └── common.sh          # Common utility functions
 ├── modules/
 │   ├── apt.sh             # APT package management
+│   ├── custom-scripts.sh  # Custom scripts management
 │   ├── docker.sh          # Docker installation
 │   ├── fail2ban.sh        # Fail2ban configuration
 │   ├── hostname.sh        # Hostname configuration
@@ -35,8 +36,20 @@ ubuntu-scripts/
 │   ├── unattended-upgrades.sh # Automatic updates
 │   ├── user.sh            # User management
 │   └── vm-guest.sh        # VM guest agent installation
+├── modules-files/         # Module data files (each module uses its own subfolder)
+│   └── custom-scripts/    # Custom scripts for installation
+│       └── dc             # Docker compose shortcut script
 └── CLAUDE.md              # This file
 ```
+
+## Module Files Directory
+
+When a module needs to store data files (templates, scripts, configurations, etc.), it should use the `modules-files/` directory with a subfolder matching the module name:
+
+- Module: `modules/custom-scripts.sh` → Files: `modules-files/custom-scripts/`
+- Module: `modules/example.sh` → Files: `modules-files/example/`
+
+This keeps the project organized and prevents conflicts between modules.
 
 ## Creating a New Module
 
