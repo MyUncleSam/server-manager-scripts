@@ -150,11 +150,11 @@ networks:
 - name: lxdbr0
   type: bridge
   config:
-    ipv4.address: 10.10.10.1/24
+    ipv4.address: 172.30.0.1/16
     ipv4.nat: "true"
     ipv4.dhcp: "true"
-    ipv4.dhcp.ranges: 10.10.10.2-10.10.10.254
-    ipv6.address: fd42:1111:1111:1111::1/64
+    ipv4.dhcp.ranges: 172.30.250.1-172.30.250.250
+    ipv6.address: fd00:c0de:cafe::1/48
     ipv6.nat: "true"
     ipv6.dhcp: "true"
     dns.mode: managed
@@ -193,7 +193,7 @@ EOF
                 fi
 
                 log_info "LXD initialized successfully (auto mode)"
-                ui_msgbox "Success" "LXD initialized successfully!\n\nConfiguration:\n- Network: lxdbr0 (bridge with IPv4/IPv6 NAT)\n  IPv4: 10.10.10.1/24 (DHCP enabled)\n  IPv6: fd42:1111:1111:1111::1/64 (DHCP enabled)\n- Storage: default (dir driver)\n- Profile: default\n- IPv4 forwarding: enabled\n\nYou can now create containers!"
+                ui_msgbox "Success" "LXD initialized successfully!\n\nConfiguration:\n- Network: lxdbr0 (bridge with IPv4/IPv6 NAT)\n  IPv4: 172.30.0.1/16 (DHCP: 172.30.250.1-250)\n  IPv6: fd00:c0de:cafe::1/48 (DHCP enabled)\n- Storage: default (dir driver)\n- Profile: default\n- IPv4 forwarding: enabled\n\nYou can now create containers!"
             else
                 log_error "LXD initialization failed: $output"
                 ui_msgbox "Error" "LXD initialization failed.\n\nError: $output"
@@ -419,7 +419,7 @@ create_bridge_network() {
     local result
     result=$(ui_mixedform "Create Bridge Network" \
         "Network Name:" 1 1 "lxdbr1" 1 20 30 50 0 \
-        "IPv4 Subnet:" 2 1 "10.10.10.1/24" 2 20 30 50 0) || return
+        "IPv4 Subnet:" 2 1 "172.31.0.1/24" 2 20 30 50 0) || return
 
     # Parse results
     local network_name ipv4_subnet
@@ -454,7 +454,7 @@ create_bridge_network() {
 
         # Get IPv6 configuration
         local ipv6_result
-        ipv6_result=$(ui_inputbox "IPv6 Subnet" "Enter IPv6 subnet:" "fd42:$(printf '%04x' $RANDOM):$(printf '%04x' $RANDOM):$(printf '%04x' $RANDOM)::1/64") || return
+        ipv6_result=$(ui_inputbox "IPv6 Subnet" "Enter IPv6 subnet:" "fd00:c0de:cafe:$(printf '%04x' $RANDOM)::1/64") || return
         ipv6_subnet=$(echo "$ipv6_result" | xargs)
 
         if ! ui_yesno "IPv6 NAT" "Enable IPv6 NAT for this network?"; then
@@ -2138,7 +2138,7 @@ troubleshoot_network() {
     local dhcp_ranges
     dhcp_ranges=$(lxc network get lxdbr0 ipv4.dhcp.ranges 2>/dev/null)
     if [[ -z "$dhcp_ranges" ]]; then
-        lxc network set lxdbr0 ipv4.dhcp.ranges 10.10.10.2-10.10.10.254 2>/dev/null
+        lxc network set lxdbr0 ipv4.dhcp.ranges 172.30.250.1-172.30.250.250 2>/dev/null
         fixes_applied+=("Set DHCP range")
     fi
 
