@@ -780,6 +780,228 @@ view_auth_log() {
     rm -f /tmp/auth_log.txt
 }
 
+# Add new user with SSH key
+add_user_with_key() {
+    if ! require_root; then
+        return 1
+    fi
+
+    # Get username
+    local username
+    username=$(ui_inputbox "New User" "Enter username:") || return
+
+    if [[ -z "$username" ]]; then
+        ui_msgbox "Error" "Username cannot be empty"
+        return 1
+    fi
+
+    # Validate username
+    if ! validate_username "$username"; then
+        ui_msgbox "Error" "Invalid username format"
+        return 1
+    fi
+
+    # Check if user already exists
+    if user_exists "$username"; then
+        ui_msgbox "Error" "User $username already exists"
+        return 1
+    fi
+
+    # Select shell
+    local shell
+    shell=$(ui_radiolist "Select Shell" "Choose default shell for $username:" \
+        "/bin/bash" "Bash (recommended)" "on" \
+        "/bin/sh" "Sh (minimal)" "off" \
+        "/bin/zsh" "Zsh (if installed)" "off" \
+        "/bin/fish" "Fish (if installed)" "off") || return
+
+    # Verify shell exists
+    if [[ ! -x "$shell" ]]; then
+        if ! ui_yesno "Shell Not Found" "Shell $shell is not installed or not executable.\n\nUse /bin/bash instead?"; then
+            return
+        fi
+        shell="/bin/bash"
+    fi
+
+    # Get public key
+    local key
+    key=$(ui_inputbox "SSH Public Key" "Paste the public key for $username:") || return
+
+    if [[ -z "$key" ]]; then
+        ui_msgbox "Error" "Key cannot be empty"
+        return 1
+    fi
+
+    # Validate key format
+    if [[ ! "$key" =~ ^ssh-(rsa|ed25519|ecdsa) ]]; then
+        ui_msgbox "Error" "Invalid key format.\nKey should start with ssh-rsa, ssh-ed25519, or ssh-ecdsa"
+        return 1
+    fi
+
+    # Create user
+    ui_infobox "Creating User" "Creating user $username with shell $shell..."
+    if ! useradd -m -s "$shell" "$username" 2>/dev/null; then
+        ui_msgbox "Error" "Failed to create user $username"
+        return 1
+    fi
+
+    # Setup SSH directory and key
+    local ssh_dir="/home/$username/.ssh"
+    local auth_file="$ssh_dir/authorized_keys"
+
+    mkdir -p "$ssh_dir"
+    chmod 700 "$ssh_dir"
+    echo "$key" > "$auth_file"
+    chmod 600 "$auth_file"
+    chown -R "$username:$username" "$ssh_dir"
+
+    log_info "Created user $username with SSH key (shell: $shell)"
+    ui_msgbox "Success" "User $username created successfully.\n\nShell: $shell\nSSH key configured - user can login via SSH with their private key.\n\nNote: User has no password set. Use 'passwd $username' to set one if needed."
+}
+
+# Manage sudoers
+manage_sudoers() {
+    if ! require_root; then
+        return 1
+    fi
+
+    while true; do
+        local choice
+        choice=$(ui_menu "Sudoers Management" "Select operation:" \
+            "add" "Add user to sudoers" \
+            "remove" "Remove user from sudoers" \
+            "list" "List sudo users") || break
+
+        case "$choice" in
+            add) add_user_to_sudoers ;;
+            remove) remove_user_from_sudoers ;;
+            list) list_sudo_users ;;
+        esac
+    done
+}
+
+# Add user to sudoers
+add_user_to_sudoers() {
+    # Get list of users
+    local users
+    users=$(get_regular_users)
+
+    if [[ -z "$users" ]]; then
+        ui_msgbox "Error" "No users found"
+        return 1
+    fi
+
+    # Select user
+    local user
+    user=$(ui_menu "Select User" "Add user to sudoers:" \
+        $(for u in $users; do echo "$u" "$u"; done)) || return
+
+    # Ask if passwordless
+    local passwordless="no"
+    if ui_yesno "Passwordless Sudo" "Allow $user to use sudo without password?\n\nWARNING: This allows the user to become root without entering a password.\n\nUser will be able to run 'sudo su -' to switch to root without password."; then
+        passwordless="yes"
+    fi
+
+    # Create sudoers file
+    local sudoers_file="/etc/sudoers.d/server-manager-$user"
+
+    if [[ "$passwordless" == "yes" ]]; then
+        echo "$user ALL=(ALL) NOPASSWD:ALL" > "$sudoers_file"
+    else
+        echo "$user ALL=(ALL:ALL) ALL" > "$sudoers_file"
+    fi
+
+    chmod 440 "$sudoers_file"
+
+    # Validate sudoers file
+    if visudo -c -f "$sudoers_file" >/dev/null 2>&1; then
+        log_info "Added $user to sudoers (passwordless: $passwordless)"
+
+        local msg="User $user added to sudoers.\n\n"
+        if [[ "$passwordless" == "yes" ]]; then
+            msg+="Passwordless sudo: YES\n\n"
+            msg+="User can:\n"
+            msg+="  • Run 'sudo su -' to become root\n"
+            msg+="  • Run any sudo command without password"
+        else
+            msg+="Passwordless sudo: NO\n\n"
+            msg+="User must enter their password to use sudo."
+        fi
+
+        ui_msgbox "Success" "$msg"
+    else
+        rm -f "$sudoers_file"
+        ui_msgbox "Error" "Failed to create valid sudoers configuration"
+        return 1
+    fi
+}
+
+# Remove user from sudoers
+remove_user_from_sudoers() {
+    # Get list of users with sudoers files
+    local sudoers_users=()
+    for file in /etc/sudoers.d/server-manager-*; do
+        if [[ -f "$file" ]]; then
+            local username="${file##*/server-manager-}"
+            sudoers_users+=("$username" "$username")
+        fi
+    done
+
+    if [[ ${#sudoers_users[@]} -eq 0 ]]; then
+        ui_msgbox "Info" "No users found in sudoers (managed by this tool)"
+        return
+    fi
+
+    # Select user
+    local user
+    user=$(ui_menu "Select User" "Remove user from sudoers:" "${sudoers_users[@]}") || return
+
+    if ui_yesno "Confirm" "Remove sudo privileges for $user?"; then
+        rm -f "/etc/sudoers.d/server-manager-$user"
+        log_info "Removed $user from sudoers"
+        ui_msgbox "Success" "Sudo privileges removed for $user"
+    fi
+}
+
+# List sudo users
+list_sudo_users() {
+    local info=""
+    info+="=== Sudo Users ===\n\n"
+    info+="Users in 'sudo' group:\n"
+    local sudo_group
+    sudo_group=$(getent group sudo 2>/dev/null | cut -d: -f4)
+    if [[ -n "$sudo_group" ]]; then
+        echo "$sudo_group" | tr ',' '\n' | while read -r user; do
+            [[ -n "$user" ]] && info+="  - $user\n"
+        done
+    else
+        info+="  (none)\n"
+    fi
+
+    info+="\nUsers managed by this tool:\n"
+    local found=0
+    for file in /etc/sudoers.d/server-manager-*; do
+        if [[ -f "$file" ]]; then
+            local username="${file##*/server-manager-}"
+            local config=$(cat "$file")
+            if echo "$config" | grep -q "NOPASSWD"; then
+                info+="  - $username (passwordless)\n"
+            else
+                info+="  - $username\n"
+            fi
+            found=1
+        fi
+    done
+
+    if [[ $found -eq 0 ]]; then
+        info+="  (none)\n"
+    fi
+
+    echo -e "$info" > /tmp/sudo_users.txt
+    ui_textbox "Sudo Users" /tmp/sudo_users.txt
+    rm -f /tmp/sudo_users.txt
+}
+
 # Main module function
 module_main() {
     while true; do
@@ -789,10 +1011,12 @@ module_main() {
             "sessions" "Show active sessions" \
             "kick" "Kick session" \
             "authlog" "View auth log" \
+            "adduser" "Add user with SSH key" \
+            "sudoers" "Manage sudoers" \
             "port" "Change SSH port" \
             "root" "Configure root login" \
             "password" "Configure password auth" \
-            "users" "Configure allowed users" \
+            "allowlist" "Configure allowed users" \
             "keys" "Manage SSH keys" \
             "harden" "Harden SSH (security)" \
             "advanced" "Advanced settings" \
@@ -805,10 +1029,12 @@ module_main() {
             sessions)      show_active_sessions ;;
             kick)          kick_session ;;
             authlog)       view_auth_log ;;
+            adduser)       add_user_with_key ;;
+            sudoers)       manage_sudoers ;;
             port)          change_ssh_port ;;
             root)          configure_root_login ;;
             password)      configure_password_auth ;;
-            users)         configure_allowed_users ;;
+            allowlist)     configure_allowed_users ;;
             keys)          manage_keys ;;
             harden)        harden_ssh ;;
             advanced)      configure_advanced ;;

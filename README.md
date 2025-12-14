@@ -56,6 +56,7 @@ ubuntu-scripts/
 │   └── common.sh          # Common utility functions
 ├── modules/               # Feature modules
 │   ├── apt.sh
+│   ├── custom-scripts.sh
 │   ├── docker.sh
 │   ├── fail2ban.sh
 │   ├── hostname.sh
@@ -68,7 +69,8 @@ ubuntu-scripts/
 │   ├── ufw.sh
 │   ├── ufw-docker.sh
 │   ├── unattended-upgrades.sh
-│   └── user.sh
+│   ├── user.sh
+│   └── vm-guest.sh
 ├── logs/                  # Log files (gitignored)
 ├── CLAUDE.md              # AI assistant instructions
 ├── FEATURES.md            # Detailed feature list
