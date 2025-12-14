@@ -84,18 +84,12 @@ install_lxd() {
     fi
 
     # Install LXD via snap
-    ui_infobox "Installing" "Installing LXD via snap...\n\nThis may take a few minutes."
-    sleep 1
-
-    local output
-    output=$(snap install lxd 2>&1) | ui_progressbox "Installing LXD" "Installing via snap..."
+    snap install lxd 2>&1 | ui_progressbox "Installing LXD" "Installing LXD via snap...\n\nThis may take a few minutes."
 
     # Install jq if not present (needed for JSON parsing)
     if ! check_jq_installed; then
-        ui_infobox "Installing Dependencies" "Installing jq for JSON parsing..."
-        sleep 1
         apt-get update &>/dev/null
-        apt-get install -y jq 2>&1 | ui_progressbox "Installing jq" "Installing dependency..."
+        apt-get install -y jq 2>&1 | ui_progressbox "Installing jq" "Installing jq for JSON parsing..."
     fi
 
     # Verify installation
@@ -104,15 +98,18 @@ install_lxd() {
         version=$(get_lxd_version)
         log_info "LXD $version installed successfully"
 
+        # Show success with version
+        ui_msgbox "Installation Complete" "LXD installed successfully!\n\nVersion: $version\n\nPress OK to continue..."
+
         # Ask to initialize
-        if ui_yesno "Initialize LXD" "LXD $version installed successfully!\n\nDo you want to initialize LXD now?\n\nInitialization sets up storage and networking for containers."; then
+        if ui_yesno "Initialize LXD" "Do you want to initialize LXD now?\n\nInitialization sets up:\n- Storage pool (default)\n- Network bridge (lxdbr0) with IPv4/IPv6 NAT\n- Default profile for containers\n\nThis is required before creating containers."; then
             initialize_lxd_wizard
         else
             ui_msgbox "Success" "LXD installed successfully!\n\nVersion: $version\n\nYou can initialize it later from the main menu."
         fi
     else
-        log_error "LXD installation failed: $output"
-        ui_msgbox "Error" "LXD installation failed.\n\nError: $output\n\nCheck the logs for details."
+        log_error "LXD installation failed"
+        ui_msgbox "Error" "LXD installation failed.\n\nThe snap installation did not complete successfully.\n\nCheck the logs for details."
         return 1
     fi
 }
