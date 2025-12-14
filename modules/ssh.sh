@@ -807,6 +807,22 @@ add_user_with_key() {
         return 1
     fi
 
+    # Select shell
+    local shell
+    shell=$(ui_radiolist "Select Shell" "Choose default shell for $username:" \
+        "/bin/bash" "Bash (recommended)" "on" \
+        "/bin/sh" "Sh (minimal)" "off" \
+        "/bin/zsh" "Zsh (if installed)" "off" \
+        "/bin/fish" "Fish (if installed)" "off") || return
+
+    # Verify shell exists
+    if [[ ! -x "$shell" ]]; then
+        if ! ui_yesno "Shell Not Found" "Shell $shell is not installed or not executable.\n\nUse /bin/bash instead?"; then
+            return
+        fi
+        shell="/bin/bash"
+    fi
+
     # Get public key
     local key
     key=$(ui_inputbox "SSH Public Key" "Paste the public key for $username:") || return
@@ -823,8 +839,8 @@ add_user_with_key() {
     fi
 
     # Create user
-    ui_infobox "Creating User" "Creating user $username..."
-    if ! useradd -m -s /bin/bash "$username" 2>/dev/null; then
+    ui_infobox "Creating User" "Creating user $username with shell $shell..."
+    if ! useradd -m -s "$shell" "$username" 2>/dev/null; then
         ui_msgbox "Error" "Failed to create user $username"
         return 1
     fi
@@ -839,8 +855,8 @@ add_user_with_key() {
     chmod 600 "$auth_file"
     chown -R "$username:$username" "$ssh_dir"
 
-    log_info "Created user $username with SSH key"
-    ui_msgbox "Success" "User $username created successfully.\n\nSSH key configured - user can login via SSH with their private key.\n\nNote: User has no password set. Use 'passwd $username' to set one if needed."
+    log_info "Created user $username with SSH key (shell: $shell)"
+    ui_msgbox "Success" "User $username created successfully.\n\nShell: $shell\nSSH key configured - user can login via SSH with their private key.\n\nNote: User has no password set. Use 'passwd $username' to set one if needed."
 }
 
 # Manage sudoers
@@ -986,6 +1002,19 @@ list_sudo_users() {
     rm -f /tmp/sudo_users.txt
 }
 
+# Manage SSH users submenu
+manage_ssh_users() {
+    while true; do
+        local choice
+        choice=$(ui_menu "SSH Users" "Select operation:" \
+            "add" "Add user with SSH key") || break
+
+        case "$choice" in
+            add) add_user_with_key ;;
+        esac
+    done
+}
+
 # Main module function
 module_main() {
     while true; do
@@ -995,12 +1024,12 @@ module_main() {
             "sessions" "Show active sessions" \
             "kick" "Kick session" \
             "authlog" "View auth log" \
-            "adduser" "Add user with SSH key" \
+            "users" "Manage SSH users" \
             "sudoers" "Manage sudoers" \
             "port" "Change SSH port" \
             "root" "Configure root login" \
             "password" "Configure password auth" \
-            "users" "Configure allowed users" \
+            "allowlist" "Configure allowed users" \
             "keys" "Manage SSH keys" \
             "harden" "Harden SSH (security)" \
             "advanced" "Advanced settings" \
@@ -1013,12 +1042,12 @@ module_main() {
             sessions)      show_active_sessions ;;
             kick)          kick_session ;;
             authlog)       view_auth_log ;;
-            adduser)       add_user_with_key ;;
+            users)         manage_ssh_users ;;
             sudoers)       manage_sudoers ;;
             port)          change_ssh_port ;;
             root)          configure_root_login ;;
             password)      configure_password_auth ;;
-            users)         configure_allowed_users ;;
+            allowlist)     configure_allowed_users ;;
             keys)          manage_keys ;;
             harden)        harden_ssh ;;
             advanced)      configure_advanced ;;
