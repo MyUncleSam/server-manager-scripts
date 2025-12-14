@@ -60,7 +60,6 @@ ubuntu-scripts/
 │   ├── docker.sh
 │   ├── fail2ban.sh
 │   ├── hostname.sh
-│   ├── lxd.sh
 │   ├── motd.sh
 │   ├── network.sh
 │   ├── ntp-client.sh
