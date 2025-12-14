@@ -1002,19 +1002,6 @@ list_sudo_users() {
     rm -f /tmp/sudo_users.txt
 }
 
-# Manage SSH users submenu
-manage_ssh_users() {
-    while true; do
-        local choice
-        choice=$(ui_menu "SSH Users" "Select operation:" \
-            "add" "Add user with SSH key") || break
-
-        case "$choice" in
-            add) add_user_with_key ;;
-        esac
-    done
-}
-
 # Main module function
 module_main() {
     while true; do
@@ -1024,7 +1011,7 @@ module_main() {
             "sessions" "Show active sessions" \
             "kick" "Kick session" \
             "authlog" "View auth log" \
-            "users" "Manage SSH users" \
+            "adduser" "Add user with SSH key" \
             "sudoers" "Manage sudoers" \
             "port" "Change SSH port" \
             "root" "Configure root login" \
@@ -1042,7 +1029,7 @@ module_main() {
             sessions)      show_active_sessions ;;
             kick)          kick_session ;;
             authlog)       view_auth_log ;;
-            users)         manage_ssh_users ;;
+            adduser)       add_user_with_key ;;
             sudoers)       manage_sudoers ;;
             port)          change_ssh_port ;;
             root)          configure_root_login ;;
