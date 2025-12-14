@@ -75,6 +75,12 @@ Install and manage LXD/LXC containers with full lifecycle management.
   - Set CPU limits (cores)
   - Set memory limits (GB)
   - Configure per-container resource constraints
+- **Network Troubleshooting**
+  - Automatic diagnostics for common network issues
+  - Check IPv4 forwarding, DHCP, DNS, and NAT configuration
+  - One-click fixes for detected problems
+  - Verify dnsmasq and bridge configuration
+  - Step-by-step recovery instructions
 - **UFW Integration**
   - Automatically configure firewall rules for container networking
   - Allow forwarding on LXD bridge interfaces

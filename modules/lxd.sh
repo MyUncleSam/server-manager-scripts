@@ -150,10 +150,14 @@ networks:
 - name: lxdbr0
   type: bridge
   config:
-    ipv4.address: auto
+    ipv4.address: 10.10.10.1/24
     ipv4.nat: "true"
-    ipv6.address: auto
+    ipv4.dhcp: "true"
+    ipv4.dhcp.ranges: 10.10.10.2-10.10.10.254
+    ipv6.address: fd42:1111:1111:1111::1/64
     ipv6.nat: "true"
+    ipv6.dhcp: "true"
+    dns.mode: managed
 storage_pools:
 - name: default
   driver: dir
@@ -180,8 +184,16 @@ EOF
             rm -f "$preseed_file"
 
             if [[ $exit_code -eq 0 ]]; then
+                # Enable IPv4 forwarding (required for NAT)
+                sysctl -w net.ipv4.ip_forward=1 &>/dev/null
+
+                # Make it permanent
+                if ! grep -q "^net.ipv4.ip_forward=1" /etc/sysctl.conf 2>/dev/null; then
+                    echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+                fi
+
                 log_info "LXD initialized successfully (auto mode)"
-                ui_msgbox "Success" "LXD initialized successfully!\n\nConfiguration:\n- Network: lxdbr0 (bridge with IPv4/IPv6 NAT)\n- Storage: default (dir driver)\n- Profile: default\n\nYou can now create containers!"
+                ui_msgbox "Success" "LXD initialized successfully!\n\nConfiguration:\n- Network: lxdbr0 (bridge with IPv4/IPv6 NAT)\n  IPv4: 10.10.10.1/24 (DHCP enabled)\n  IPv6: fd42:1111:1111:1111::1/64 (DHCP enabled)\n- Storage: default (dir driver)\n- Profile: default\n- IPv4 forwarding: enabled\n\nYou can now create containers!"
             else
                 log_error "LXD initialization failed: $output"
                 ui_msgbox "Error" "LXD initialization failed.\n\nError: $output"
@@ -1999,6 +2011,165 @@ manage_lxd_service() {
     esac
 }
 
+# Troubleshoot network issues
+troubleshoot_network() {
+    if ! check_lxd_initialized; then
+        ui_msgbox "Error" "LXD is not initialized.\n\nPlease initialize LXD first."
+        return 1
+    fi
+
+    local issues_found=()
+    local fixes_applied=()
+
+    # Check 1: IPv4 forwarding
+    local ipv4_forward
+    ipv4_forward=$(sysctl -n net.ipv4.ip_forward 2>/dev/null)
+    if [[ "$ipv4_forward" != "1" ]]; then
+        issues_found+=("IPv4 forwarding is DISABLED")
+    fi
+
+    # Check 2: LXD bridge exists
+    if ! ip link show lxdbr0 &>/dev/null; then
+        issues_found+=("Bridge lxdbr0 does NOT exist")
+    fi
+
+    # Check 3: DHCP configuration
+    local dhcp_enabled
+    dhcp_enabled=$(lxc network get lxdbr0 ipv4.dhcp 2>/dev/null)
+    if [[ "$dhcp_enabled" != "true" ]]; then
+        issues_found+=("DHCP is NOT enabled on lxdbr0")
+    fi
+
+    # Check 4: DNS mode
+    local dns_mode
+    dns_mode=$(lxc network get lxdbr0 dns.mode 2>/dev/null)
+    if [[ "$dns_mode" != "managed" ]]; then
+        issues_found+=("DNS mode is NOT set to 'managed'")
+    fi
+
+    # Check 5: NAT enabled
+    local nat_enabled
+    nat_enabled=$(lxc network get lxdbr0 ipv4.nat 2>/dev/null)
+    if [[ "$nat_enabled" != "true" ]]; then
+        issues_found+=("IPv4 NAT is NOT enabled")
+    fi
+
+    # Check 6: dnsmasq process
+    if ! ps aux | grep -v grep | grep "dnsmasq.*lxdbr0" &>/dev/null; then
+        issues_found+=("dnsmasq is NOT running for lxdbr0")
+    fi
+
+    # Build report
+    local report="=== Network Troubleshooting Report ===\n\n"
+
+    if [[ ${#issues_found[@]} -eq 0 ]]; then
+        report+="✓ No issues detected!\n\n"
+        report+="Network configuration appears correct:\n"
+        report+="- IPv4 forwarding: enabled\n"
+        report+="- Bridge lxdbr0: exists\n"
+        report+="- DHCP: enabled\n"
+        report+="- DNS: managed\n"
+        report+="- NAT: enabled\n"
+        report+="- dnsmasq: running\n\n"
+        report+="If containers still have no network, try:\n"
+        report+="1. Restart containers: lxc restart <name>\n"
+        report+="2. Restart LXD: systemctl restart snap.lxd.daemon\n"
+
+        local temp_file
+        temp_file=$(mktemp)
+        echo -e "$report" > "$temp_file"
+        ui_textbox "Network Troubleshooting" "$temp_file"
+        rm -f "$temp_file"
+        return
+    fi
+
+    report+="✗ Issues found:\n\n"
+    for issue in "${issues_found[@]}"; do
+        report+="  - $issue\n"
+    done
+    report+="\n"
+
+    local temp_file
+    temp_file=$(mktemp)
+    echo -e "$report" > "$temp_file"
+    ui_textbox "Issues Detected" "$temp_file"
+    rm -f "$temp_file"
+
+    # Offer to fix
+    if ! ui_yesno "Fix Issues" "Found ${#issues_found[@]} issue(s).\n\nDo you want to automatically fix these issues?"; then
+        return
+    fi
+
+    if ! require_root; then
+        return 1
+    fi
+
+    ui_infobox "Fixing Issues" "Applying fixes..."
+    sleep 1
+
+    # Fix 1: Enable IPv4 forwarding
+    if [[ "$ipv4_forward" != "1" ]]; then
+        sysctl -w net.ipv4.ip_forward=1 &>/dev/null
+        if ! grep -q "^net.ipv4.ip_forward=1" /etc/sysctl.conf 2>/dev/null; then
+            echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+        fi
+        fixes_applied+=("Enabled IPv4 forwarding")
+    fi
+
+    # Fix 2: Enable DHCP
+    if [[ "$dhcp_enabled" != "true" ]]; then
+        lxc network set lxdbr0 ipv4.dhcp true 2>/dev/null
+        fixes_applied+=("Enabled DHCP on lxdbr0")
+    fi
+
+    # Fix 3: Set DNS mode
+    if [[ "$dns_mode" != "managed" ]]; then
+        lxc network set lxdbr0 dns.mode managed 2>/dev/null
+        fixes_applied+=("Set DNS mode to 'managed'")
+    fi
+
+    # Fix 4: Enable NAT
+    if [[ "$nat_enabled" != "true" ]]; then
+        lxc network set lxdbr0 ipv4.nat true 2>/dev/null
+        fixes_applied+=("Enabled IPv4 NAT")
+    fi
+
+    # Fix 5: Set DHCP ranges if not set
+    local dhcp_ranges
+    dhcp_ranges=$(lxc network get lxdbr0 ipv4.dhcp.ranges 2>/dev/null)
+    if [[ -z "$dhcp_ranges" ]]; then
+        lxc network set lxdbr0 ipv4.dhcp.ranges 10.10.10.2-10.10.10.254 2>/dev/null
+        fixes_applied+=("Set DHCP range")
+    fi
+
+    # Fix 6: Restart LXD to apply changes
+    systemctl restart snap.lxd.daemon
+    fixes_applied+=("Restarted LXD daemon")
+
+    # Build success report
+    local success_report="=== Fixes Applied ===\n\n"
+    for fix in "${fixes_applied[@]}"; do
+        success_report+="✓ $fix\n"
+    done
+    success_report+="\n"
+    success_report+="Recommendations:\n"
+    success_report+="1. Restart your containers:\n"
+    success_report+="   lxc restart <container-name>\n\n"
+    success_report+="2. Verify container gets IP:\n"
+    success_report+="   lxc list\n\n"
+    success_report+="3. Test from inside container:\n"
+    success_report+="   lxc exec <name> -- ping -c 3 8.8.8.8\n"
+    success_report+="   lxc exec <name> -- ping -c 3 google.com\n"
+
+    local temp_file2
+    temp_file2=$(mktemp)
+    echo -e "$success_report" > "$temp_file2"
+    ui_textbox "Fixes Applied" "$temp_file2"
+    rm -f "$temp_file2"
+
+    log_info "Network troubleshooting: applied ${#fixes_applied[@]} fixes"
+}
+
 #
 # Main Module Function
 #
@@ -2019,6 +2190,7 @@ module_main() {
             "webui" "Manage web UI" \
             "snapshots" "Manage snapshots" \
             "limits" "Set resource limits" \
+            "troubleshoot" "Troubleshoot network issues" \
             "ufw" "Configure UFW for LXD" \
             "service" "Manage LXD service") || break
 
@@ -2034,6 +2206,7 @@ module_main() {
             webui) manage_webui ;;
             snapshots) manage_snapshots ;;
             limits) set_container_limits ;;
+            troubleshoot) troubleshoot_network ;;
             ufw) configure_ufw_for_lxd ;;
             service) manage_lxd_service ;;
         esac
