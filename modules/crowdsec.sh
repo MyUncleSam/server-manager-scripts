@@ -50,54 +50,39 @@ install_crowdsec() {
         return
     fi
 
-    # Show progress
-    (
-        echo 10
-        echo "# Adding CrowdSec repository..."
+    # Add repository with visible output
+    ui_msgbox "Adding Repository" "Adding CrowdSec repository...\n\nThis may take a minute. You'll see the script output next."
 
-        # Add repository
-        if ! curl -fsSL https://packagecloud.io/install/repositories/crowdsec/crowdsec/script.deb.sh 2>/dev/null | bash >/dev/null 2>&1; then
-            echo "ERROR: Failed to add repository"
-            exit 1
-        fi
+    if ! (curl -fsSL https://packagecloud.io/install/repositories/crowdsec/crowdsec/script.deb.sh | bash) 2>&1 | ui_progressbox "Adding CrowdSec Repository"; then
+        ui_msgbox "Error" "Failed to add CrowdSec repository.\n\nPlease check your internet connection and try again."
+        return 1
+    fi
 
-        echo 40
-        echo "# Installing CrowdSec package..."
+    # Install package with progress
+    ui_infobox "Installing" "Installing CrowdSec package..."
+    sleep 1
 
-        # Update package list
-        apt-get update >/dev/null 2>&1
+    if ! install_packages crowdsec; then
+        ui_msgbox "Error" "Failed to install CrowdSec package"
+        return 1
+    fi
 
-        echo 60
-        echo "# Installing crowdsec..."
+    # Enable and start service
+    ui_infobox "Starting Service" "Enabling and starting CrowdSec service..."
+    systemctl enable crowdsec 2>&1
+    systemctl start crowdsec 2>&1
+    sleep 2
 
-        # Install package
-        if ! apt-get install -y crowdsec >/dev/null 2>&1; then
-            echo "ERROR: Failed to install package"
-            exit 1
-        fi
-
-        echo 80
-        echo "# Enabling and starting service..."
-
-        # Enable and start service
-        systemctl enable crowdsec >/dev/null 2>&1
-        systemctl start crowdsec >/dev/null 2>&1
-
-        echo 100
-        echo "# Installation complete"
-
-    ) | ui_gauge "Installing CrowdSec" "Please wait..." 20
-
-    if is_crowdsec_installed; then
+    if is_crowdsec_installed && is_crowdsec_running; then
         log_info "CrowdSec installed and started"
-        ui_msgbox "Success" "CrowdSec installed successfully.\n\nService is now running."
+        ui_msgbox "Success" "CrowdSec installed successfully!\n\nService is now running."
 
         # Offer Quick Setup
         if ui_yesno "Quick Setup" "Would you like to run Quick Setup to install common protection collections and configure firewall bouncer?"; then
             quick_setup
         fi
     else
-        ui_msgbox "Error" "Failed to install CrowdSec"
+        ui_msgbox "Error" "CrowdSec was installed but the service may not be running.\n\nCheck 'View logs' for details."
         return 1
     fi
 }
