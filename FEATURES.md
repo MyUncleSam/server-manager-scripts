@@ -32,7 +32,7 @@ Install and manage CrowdSec IDS/IPS (Intrusion Detection and Prevention System).
   - crowdsecurity/nginx (Nginx protection)
   - crowdsecurity/apache2 (Apache protection)
   - Firewall bouncer installation option
-- **Show CrowdSec status** - Service status, version, scenarios/collections/decisions/bouncers counts, hub status
+- **Show CrowdSec status** - Service status, version, LAPI/CAPI/Console connection status, scenarios/collections/decisions/bouncers counts, hub status
 - **Show active decisions** - List all current bans with IP, reason, duration, scenario, type
 - **Install/Uninstall CrowdSec** - With automatic Quick Setup wizard after installation
 - **Service control** - Start, stop, restart, reload, show systemd status
@@ -48,7 +48,11 @@ Install and manage CrowdSec IDS/IPS (Intrusion Detection and Prevention System).
 - **Show installed scenarios** - List all scenarios with status
 - **Manage collections** - List, install, remove, update hub index, upgrade all items
 - **Manage bouncers** - List, install firewall bouncer, add custom bouncer (get API key), remove
-- **Console enrollment** - Enroll to CrowdSec Console (cloud management) and show status
+- **Cloud Services (CAPI/Console)** - Central API and Console management:
+  - Check Central API (CAPI) status - Shows community threat intelligence connection
+  - Register with Central API - Share/receive threat intelligence with the community
+  - Console enrollment status - Check if enrolled to web dashboard
+  - Enroll to CrowdSec Console - Web dashboard for monitoring and centralized management
 - **Manage parsers** - List, install, remove, upgrade parsers
 - **Manage postoverflows** - List, install, remove postoverflows
 - **Acquisition configuration** - View, edit, test log source configuration

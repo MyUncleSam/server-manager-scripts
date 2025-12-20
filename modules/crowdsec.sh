@@ -145,7 +145,32 @@ show_status() {
     # Version
     local version
     version=$(cscli version 2>/dev/null | head -1 | awk '{print $NF}')
-    info+="Version:              $version\n\n"
+    info+="Version:              $version\n"
+
+    # Check LAPI (Local API) status
+    if [[ -f "$CROWDSEC_LOCAL_API" ]]; then
+        info+="Local API (LAPI):     Configured ✓\n"
+    else
+        info+="Local API (LAPI):     Not configured ✗\n"
+    fi
+
+    # Check CAPI (Central API) connection
+    local capi_status
+    capi_status=$(cscli capi status 2>/dev/null)
+    if echo "$capi_status" | grep -q "You can successfully interact with Central API"; then
+        info+="Central API (CAPI):   Connected ✓\n"
+    else
+        info+="Central API (CAPI):   Not connected ✗\n"
+    fi
+
+    # Check Console enrollment
+    local console_status
+    console_status=$(cscli console status 2>/dev/null)
+    if echo "$console_status" | grep -qi "enrolled"; then
+        info+="Console:              Enrolled ✓\n\n"
+    else
+        info+="Console:              Not enrolled ✗\n\n"
+    fi
 
     # Scenarios count
     local scenarios_count
@@ -811,7 +836,7 @@ manage_bouncers() {
     done
 }
 
-# Console enrollment
+# Cloud Services (Console & CAPI)
 console_menu() {
     if ! is_crowdsec_installed; then
         ui_msgbox "Error" "CrowdSec is not installed"
@@ -820,25 +845,59 @@ console_menu() {
 
     while true; do
         local choice
-        choice=$(ui_menu "Console Management" "Select operation:" \
-            "status" "Show console enrollment status" \
-            "enroll" "Enroll to CrowdSec Console") || break
+        choice=$(ui_menu "Cloud Services" "Select operation:" \
+            "capi-status" "Show Central API (CAPI) status" \
+            "capi-register" "Register with Central API (CAPI)" \
+            "console-status" "Show Console enrollment status" \
+            "console-enroll" "Enroll to CrowdSec Console") || break
 
         case "$choice" in
-            status)
-                local console_status
-                console_status=$(cscli console status 2>&1)
-                echo "$console_status" > /tmp/crowdsec_console_status.txt
-                ui_textbox "Console Status" /tmp/crowdsec_console_status.txt
-                rm -f /tmp/crowdsec_console_status.txt
+            capi-status)
+                local capi_status
+                capi_status=$(cscli capi status 2>&1)
+                echo "$capi_status" > /tmp/crowdsec_capi_status.txt
+                ui_textbox "Central API (CAPI) Status" /tmp/crowdsec_capi_status.txt
+                rm -f /tmp/crowdsec_capi_status.txt
                 ;;
-            enroll)
+            capi-register)
                 if ! require_root; then
                     continue
                 fi
 
+                if ! ui_yesno "Register CAPI" "Register this CrowdSec instance with the Central API?\n\nThis allows you to:\n• Share threat intelligence with the community\n• Receive community blocklists\n\nRecommended: Yes"; then
+                    continue
+                fi
+
+                ui_infobox "Registering" "Registering with Central API..."
+
+                if cscli capi register 2>&1 | ui_progressbox "CAPI Registration"; then
+                    log_info "Registered with CrowdSec Central API"
+
+                    # Restart service to apply
+                    systemctl restart crowdsec 2>&1
+                    sleep 2
+
+                    ui_msgbox "Success" "Successfully registered with Central API!\n\nYour instance can now:\n• Share signals with the community\n• Receive community blocklists\n\nService has been restarted."
+                else
+                    ui_msgbox "Error" "Failed to register with Central API.\n\nThis is usually automatic during installation.\nCheck logs for details."
+                fi
+                ;;
+            console-status)
+                local console_status
+                console_status=$(cscli console status 2>&1)
+                echo "$console_status" > /tmp/crowdsec_console_status.txt
+                ui_textbox "Console Enrollment Status" /tmp/crowdsec_console_status.txt
+                rm -f /tmp/crowdsec_console_status.txt
+                ;;
+            console-enroll)
+                if ! require_root; then
+                    continue
+                fi
+
+                ui_msgbox "Console Enrollment" "To enroll in CrowdSec Console:\n\n1. Go to https://app.crowdsec.net\n2. Create a free account\n3. Click 'Add Instance'\n4. Copy the enrollment key\n\nThe Console provides:\n• Web dashboard for monitoring\n• Centralized management\n• Analytics and insights"
+
                 local enrollment_key
-                enrollment_key=$(ui_inputbox "Console Enrollment" "Enter your CrowdSec Console enrollment key:\n\n(Get this from https://app.crowdsec.net)") || continue
+                enrollment_key=$(ui_inputbox "Console Enrollment" "Enter your CrowdSec Console enrollment key:") || continue
 
                 if [[ -z "$enrollment_key" ]]; then
                     continue
@@ -1186,7 +1245,7 @@ module_main() {
             "unban" "Unban an IP" \
             "clear-bans" "Clear all bans" \
             "" "" \
-            "console" "Console enrollment and status" \
+            "console" "Cloud Services (CAPI/Console)" \
             "acquisition" "Configure log sources" \
             "parsers" "Manage parsers" \
             "postoverflows" "Manage postoverflows" \
