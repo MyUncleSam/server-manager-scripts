@@ -20,6 +20,41 @@ Manage and maintain APT packages and updates.
 - **Show cache info** - Cache size, package counts
 - **Show APT history**
 
+## CrowdSec
+
+Install and manage CrowdSec IDS/IPS (Intrusion Detection and Prevention System).
+
+- **Quick setup** - Install common protection collections and firewall bouncer with checklist:
+  - crowdsecurity/linux (base OS protection)
+  - crowdsecurity/sshd (SSH brute force)
+  - crowdsecurity/http-cve (HTTP exploits)
+  - crowdsecurity/base-http-scenarios (HTTP attacks)
+  - crowdsecurity/nginx (Nginx protection)
+  - crowdsecurity/apache2 (Apache protection)
+  - Firewall bouncer installation option
+- **Show CrowdSec status** - Service status, version, scenarios/collections/decisions/bouncers counts, hub status
+- **Show active decisions** - List all current bans with IP, reason, duration, scenario, type
+- **Install/Uninstall CrowdSec** - With automatic Quick Setup wizard after installation
+- **Service control** - Start, stop, restart, reload, show systemd status
+- **View logs** - Service logs (journalctl), decision logs, log file
+- **Ban IP manually** - Add custom ban with:
+  - IP validation
+  - Duration (4h, 2d, 1w, 0 for permanent)
+  - Ban type (ban, captcha, throttle)
+  - Custom reason
+- **Unban IP** - Remove specific IP ban
+- **Clear all bans** - Remove all active decisions with confirmation
+- **Manage whitelist** - Show, add, remove whitelisted IPs (never banned)
+- **Show installed scenarios** - List all scenarios with status
+- **Manage collections** - List, install, remove, update hub index, upgrade all items
+- **Manage bouncers** - List, install firewall bouncer, add custom bouncer (get API key), remove
+- **Console enrollment** - Enroll to CrowdSec Console (cloud management) and show status
+- **Manage parsers** - List, install, remove, upgrade parsers
+- **Manage postoverflows** - List, install, remove postoverflows
+- **Acquisition configuration** - View, edit, test log source configuration
+- **Toggle simulation mode** - Enable/disable simulation (test scenarios without real bans)
+- **Explain decision for IP** - Show why an IP was banned (decisions, alerts, timeline)
+
 ## Docker Install
 
 Install and manage Docker CE.
