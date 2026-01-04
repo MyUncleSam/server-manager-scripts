@@ -1,0 +1,48 @@
+#!/bin/bash
+
+# Colors for output
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+RESET='\033[0m'
+
+# Check if running as root
+if [ "$EUID" -ne 0 ]; then
+    echo "Please run as root (use sudo)"
+    exit 1
+fi
+
+echo "Starting system update..."
+echo ""
+
+# Update package lists
+echo "Updating package lists..."
+apt update
+
+if [ $? -ne 0 ]; then
+    echo "Failed to update package lists"
+    exit 1
+fi
+
+echo ""
+echo "Upgrading packages..."
+apt upgrade
+
+if [ $? -ne 0 ]; then
+    echo "Failed to upgrade packages"
+    exit 1
+fi
+
+echo ""
+echo "Update completed successfully!"
+echo ""
+
+# Check if reboot is required
+if [ -f /var/run/reboot-required ]; then
+    echo -e "${RED}REBOOT REQUIRED${RESET}"
+    if [ -f /var/run/reboot-required.pkgs ]; then
+        echo "Packages requiring reboot:"
+        cat /var/run/reboot-required.pkgs
+    fi
+else
+    echo -e "${GREEN}No reboot required${RESET}"
+fi
