@@ -70,6 +70,7 @@ ubuntu-scripts/
 │   ├── ufw.sh
 │   ├── ufw-docker.sh
 │   ├── unattended-upgrades.sh
+│   ├── update-alternatives.sh
 │   ├── user.sh
 │   └── vm-guest.sh
 ├── modules-files/         # Module data files

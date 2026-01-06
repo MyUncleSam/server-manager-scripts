@@ -266,6 +266,36 @@ Configure automatic system updates.
 - **Configure update origins** - Security, updates, proposed, backports
 - **Run unattended-upgrade now**
 
+## Update Alternatives
+
+Manage system alternatives using the Debian/Ubuntu update-alternatives system.
+
+- **Browse and configure** - Ultra-simple workflow:
+  - View all system alternatives with current mode (auto/manual) and path
+  - Select any alternative → immediately shows native configuration dialog
+  - Make your choice or press CTRL+C to cancel
+  - Immediately shows result dialog with detailed feedback:
+    - **Success**: Shows what changed (before/after paths)
+    - **No change**: Indicates same option was selected
+    - **Cancelled**: Confirms cancellation
+    - **Error**: Shows error details
+  - No intermediate screens, prompts, or waiting
+- **Smart handling**:
+  - Automatic validation (single-option alternatives are handled gracefully)
+  - Proper CTRL+C abort detection with trap handling
+  - Before/after comparison to show exactly what changed
+  - Immediate feedback via UI dialogs
+  - Returns directly to menu after any action
+  - Requires root privileges
+  - Native system interface (`update-alternatives --config`)
+- Common alternatives managed:
+  - editor (vim, nano, etc.)
+  - pager (less, more, etc.)
+  - awk (gawk, mawk, etc.)
+  - x-terminal-emulator (terminal applications)
+  - x-www-browser (web browsers)
+  - And many more system commands
+
 ## User Management
 
 Manage system users and groups.
