@@ -56,6 +56,7 @@ ubuntu-scripts/
 │   └── common.sh          # Common utility functions
 ├── modules/               # Feature modules
 │   ├── apt.sh
+│   ├── cron.sh
 │   ├── custom-scripts.sh
 │   ├── docker.sh
 │   ├── fail2ban.sh
@@ -71,6 +72,9 @@ ubuntu-scripts/
 │   ├── unattended-upgrades.sh
 │   ├── user.sh
 │   └── vm-guest.sh
+├── modules-files/         # Module data files
+│   ├── cron/              # Pre-configured cron jobs
+│   └── custom-scripts/    # Custom utility scripts
 ├── logs/                  # Log files (gitignored)
 ├── CLAUDE.md              # AI assistant instructions
 ├── FEATURES.md            # Detailed feature list

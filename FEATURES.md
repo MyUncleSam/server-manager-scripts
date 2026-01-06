@@ -59,6 +59,25 @@ Install and manage CrowdSec IDS/IPS (Intrusion Detection and Prevention System).
 - **Toggle simulation mode** - Enable/disable simulation (test scenarios without real bans)
 - **Explain decision for IP** - Show why an IP was banned (decisions, alerts, timeline)
 
+## Cron Jobs
+
+Manage cron jobs and schedules for users and system.
+
+- **View user crontab** - Select and view a specific user's crontab with syntax highlighting (if bat is installed)
+- **Edit user crontab** - Edit a user's crontab using system editor
+- **Edit system cron file** - Edit system cron files from /etc/cron.d, /etc/cron.daily, /etc/cron.hourly, /etc/cron.monthly, /etc/cron.weekly, /etc/cron.yearly
+- **Install system cron files** - Install pre-configured cron jobs to /etc/cron.d/ with content preview and validation
+- **Uninstall system cron files** - Remove installed system cron jobs
+- Available pre-configured cron jobs:
+  - **rclone-selfupdate** - Update rclone daily at 16:00
+  - **system-reboot** - Scheduled system reboot daily at 03:00 (with 5-minute warning)
+  - **apt-update-weekly** - Update and upgrade packages weekly on Sundays at 02:00
+  - **docker-cleanup** - Clean up unused Docker resources weekly on Saturdays at 04:00
+  - **certbot-renew** - Renew SSL certificates automatically twice daily
+  - **backup-databases** - Backup all MySQL/MariaDB databases nightly at 01:00
+  - **log-rotation-custom** - Compress logs older than 7 days weekly on Sundays at 05:00
+  - **temp-cleanup** - Clean /tmp and /var/tmp daily at 06:00
+
 ## Docker Install
 
 Install and manage Docker CE.
