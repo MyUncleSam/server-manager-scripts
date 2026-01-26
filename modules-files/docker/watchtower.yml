@@ -1,0 +1,17 @@
+services:
+  watchtower:
+    container_name: watchtower
+    image: nickfedor/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /root/.docker/:/config/
+    environment:
+      TZ: Europe/Berlin
+      WATCHTOWER_UPDATE_ON_START: true
+      DOCKER_CONFIG: /config
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_SCHEDULE: "0 0 3 * * *"
+      #WATCHTOWER_NOTIFICATIONS: "slack"
+      #WATCHTOWER_NOTIFICATION_SLACK_HOOK_URL: ""
+      #WATCHTOWER_NOTIFICATION_SLACK_IDENTIFIER: "WatchTower"
+    restart: unless-stopped
