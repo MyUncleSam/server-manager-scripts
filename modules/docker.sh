@@ -4,6 +4,16 @@
 # Install Docker using the official convenience script from docker/docker-install
 #
 
+# Get the directory where this script is located
+MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$MODULE_DIR/.." && pwd)"
+
+# Path to module files directory
+MODULE_FILES_DIR="$PROJECT_ROOT/modules-files/docker"
+
+# Docker stacks directory
+DOCKER_STACKS_DIR="/opt/docker"
+
 # Module metadata
 module_info() {
     echo "Docker Install|Install Docker using official script"
@@ -619,6 +629,127 @@ manage_networks() {
     done
 }
 
+# Deploy containers from compose templates
+deploy_containers() {
+    if ! check_docker_installed; then
+        ui_msgbox "Info" "Docker is not installed"
+        return
+    fi
+
+    if ! service_is_running docker; then
+        ui_msgbox "Info" "Docker service is not running"
+        return
+    fi
+
+    if ! require_root; then
+        return 1
+    fi
+
+    # Check if module files directory exists
+    if [[ ! -d "$MODULE_FILES_DIR" ]]; then
+        ui_msgbox "Error" "Module files directory not found:\n$MODULE_FILES_DIR"
+        return 1
+    fi
+
+    # Build list of available containers
+    local containers_list=()
+    for yml_file in "$MODULE_FILES_DIR"/*.yml; do
+        [[ -f "$yml_file" ]] || continue
+        local name
+        name=$(basename "$yml_file" .yml)
+
+        # Get description if available
+        local desc="Docker container"
+        local desc_file="$MODULE_FILES_DIR/${name}.description"
+        if [[ -f "$desc_file" ]]; then
+            desc=$(cat "$desc_file")
+        fi
+
+        # Check if already deployed
+        local status="off"
+        if [[ -f "$DOCKER_STACKS_DIR/$name/compose.yml" ]]; then
+            desc="[DEPLOYED] $desc"
+        fi
+
+        containers_list+=("$name" "$desc" "$status")
+    done
+
+    if [[ ${#containers_list[@]} -eq 0 ]]; then
+        ui_msgbox "Info" "No container templates found"
+        return
+    fi
+
+    # Show selection dialog
+    local selected
+    selected=$(ui_checklist "Deploy Containers" "Select containers to deploy to $DOCKER_STACKS_DIR:" "${containers_list[@]}") || return
+
+    if [[ -z "$selected" ]]; then
+        return
+    fi
+
+    # Confirm deployment
+    local confirm_msg="The following containers will be deployed:\n\n"
+    for name in $selected; do
+        name=$(echo "$name" | tr -d '"')
+        confirm_msg+="  - $name → $DOCKER_STACKS_DIR/$name\n"
+    done
+    confirm_msg+="\nEach container will be started as a daemon."
+
+    if ! ui_yesno "Confirm Deployment" "$confirm_msg"; then
+        return
+    fi
+
+    # Deploy each selected container
+    local success_count=0
+    local fail_count=0
+    local results=""
+
+    for name in $selected; do
+        name=$(echo "$name" | tr -d '"')
+        local target_dir="$DOCKER_STACKS_DIR/$name"
+        local source_file="$MODULE_FILES_DIR/${name}.yml"
+
+        ui_infobox "Deploying" "Deploying $name..."
+
+        # Create target directory
+        if ! mkdir -p "$target_dir"; then
+            results+="✗ $name: Failed to create directory\n"
+            ((fail_count++))
+            continue
+        fi
+
+        # Copy compose file
+        if ! cp "$source_file" "$target_dir/compose.yml"; then
+            results+="✗ $name: Failed to copy compose file\n"
+            ((fail_count++))
+            continue
+        fi
+
+        # Start container
+        local output
+        output=$(cd "$target_dir" && docker compose up -d 2>&1)
+        local exit_code=$?
+
+        if [[ $exit_code -eq 0 ]]; then
+            results+="✓ $name: Deployed successfully\n"
+            log_info "Deployed container: $name to $target_dir"
+            ((success_count++))
+        else
+            results+="✗ $name: Failed to start - $output\n"
+            log_error "Failed to deploy container: $name - $output"
+            ((fail_count++))
+        fi
+    done
+
+    # Show results
+    local summary="Deployment complete!\n\n"
+    summary+="Successful: $success_count\n"
+    summary+="Failed: $fail_count\n\n"
+    summary+="Results:\n$results"
+
+    ui_msgbox "Deployment Results" "$summary"
+}
+
 # Main module function
 module_main() {
     while true; do
@@ -627,6 +758,7 @@ module_main() {
             "status" "Docker status" \
             "install" "Install Docker" \
             "uninstall" "Uninstall Docker" \
+            "deploy" "Deploy containers" \
             "containers" "List containers" \
             "images" "List images" \
             "networks" "Manage networks" \
@@ -638,6 +770,7 @@ module_main() {
             status)     docker_status ;;
             install)    install_docker ;;
             uninstall)  uninstall_docker ;;
+            deploy)     deploy_containers ;;
             containers) list_containers ;;
             images)     list_images ;;
             networks)   manage_networks ;;

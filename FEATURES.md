@@ -82,11 +82,25 @@ Manage cron jobs and schedules for users and system.
 
 Install and manage Docker CE.
 
-- Install Docker CE
-- Uninstall Docker
-- Show Docker status
-- Add user to docker group
-- Configure Docker daemon
+- **Show Docker status** - Version, service state, container/image counts, disk usage
+- **Install Docker CE** - Using official installation script
+- **Uninstall Docker** - With option to remove data
+- **Deploy containers** - Deploy pre-configured containers from compose templates:
+  - **watchtower** - Automatic Docker container updater (updates daily at 3 AM)
+  - **dockge** - Docker Compose stack manager web UI (port 5001)
+  - **backrest** - Backup solution with restic backend (port 9898)
+  - **databaseus** - Database management tool (port 4005)
+  - **bentopdf** - PDF generation service (port 8080)
+  - **omnitools** - Collection of useful web tools (port 8180)
+  - **wg-easy** - WireGuard VPN with web UI (VPN port 55523, UI port 8280)
+  - Containers deployed to `/opt/docker/<name>/compose.yml`
+  - Multi-select support for batch deployment
+- **List containers** - Show all containers with status
+- **List images** - Show all images with size
+- **Manage networks** - List, add, remove Docker networks
+- **View logs** - Docker daemon logs or container logs
+- **Clean up unused data** - Prune containers, images, volumes, networks
+- **Manage Docker service** - Start, stop, restart, enable/disable
 
 ## Fail2ban
 

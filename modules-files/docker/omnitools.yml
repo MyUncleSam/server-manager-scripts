@@ -1,0 +1,9 @@
+services:
+  omnitools:
+    container_name: omnitools
+    image: iib0011/omni-tools
+    environment:
+      TZ: Europe/Berlin
+    ports:
+      - 127.0.0.1:8180:80
+    restart: unless-stopped
