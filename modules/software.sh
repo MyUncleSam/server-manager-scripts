@@ -80,6 +80,18 @@ show_status() {
         info+="starship:      Not installed\n"
     fi
 
+    if is_installed ctop; then
+        info+="ctop:          Installed (Docker wrapper)\n"
+    else
+        info+="ctop:          Not installed\n"
+    fi
+
+    if is_installed dtop; then
+        info+="dtop:          Installed (Docker wrapper)\n"
+    else
+        info+="dtop:          Not installed\n"
+    fi
+
     echo -e "$info" > /tmp/software_status.txt
     ui_textbox "Software Status" /tmp/software_status.txt
     rm -f /tmp/software_status.txt
@@ -552,6 +564,74 @@ install_starship() {
     fi
 }
 
+# Install ctop (container top - Docker wrapper)
+install_ctop() {
+    if ! require_root; then
+        return 1
+    fi
+
+    if is_installed ctop; then
+        if ! ui_yesno "Already Installed" "ctop is already installed.\n\nReinstall/Update?"; then
+            return 0
+        fi
+    fi
+
+    if ! command_exists docker; then
+        ui_msgbox "Error" "Docker is required for ctop.\nPlease install Docker first."
+        return 1
+    fi
+
+    ui_infobox "Installing" "Installing ctop..."
+
+    # Create wrapper script that runs ctop via Docker
+    cat > /usr/local/bin/ctop << 'EOF'
+#!/bin/bash
+# ctop - Container top via Docker
+docker run --rm -ti \
+    --name=ctop \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    quay.io/vektorlab/ctop:latest "$@"
+EOF
+
+    chmod +x /usr/local/bin/ctop
+    log_info "ctop installed"
+    ui_msgbox "Success" "ctop installed\n\nRun 'ctop' to monitor containers."
+}
+
+# Install dtop (Docker top - Docker wrapper)
+install_dtop() {
+    if ! require_root; then
+        return 1
+    fi
+
+    if is_installed dtop; then
+        if ! ui_yesno "Already Installed" "dtop is already installed.\n\nReinstall/Update?"; then
+            return 0
+        fi
+    fi
+
+    if ! command_exists docker; then
+        ui_msgbox "Error" "Docker is required for dtop.\nPlease install Docker first."
+        return 1
+    fi
+
+    ui_infobox "Installing" "Installing dtop..."
+
+    # Create wrapper script that runs dtop via Docker
+    cat > /usr/local/bin/dtop << 'EOF'
+#!/bin/bash
+# dtop - Docker top via Docker
+docker run --rm -ti \
+    --name=dtop \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    ghcr.io/amir20/dtop "$@"
+EOF
+
+    chmod +x /usr/local/bin/dtop
+    log_info "dtop installed"
+    ui_msgbox "Success" "dtop installed\n\nRun 'dtop' to monitor containers."
+}
+
 # Uninstall software
 uninstall_software() {
     if ! require_root; then
@@ -570,6 +650,8 @@ uninstall_software() {
     is_installed fzf && pkg_list+=("fzf" "Fuzzy finder" "off")
     is_installed yq && pkg_list+=("yq" "YAML processor" "off")
     is_installed starship && pkg_list+=("starship" "Cross-shell prompt" "off")
+    is_installed ctop && pkg_list+=("ctop" "Container top (Docker)" "off")
+    is_installed dtop && pkg_list+=("dtop" "Docker top (Docker)" "off")
 
     if [[ ${#pkg_list[@]} -eq 0 ]]; then
         ui_msgbox "Info" "No removable software installed"
@@ -595,6 +677,8 @@ uninstall_software() {
             fzf)        rm -f /usr/local/bin/fzf ;;
             yq)         rm -f /usr/local/bin/yq ;;
             starship)   rm -f /usr/local/bin/starship ;;
+            ctop)       rm -f /usr/local/bin/ctop ;;
+            dtop)       rm -f /usr/local/bin/dtop ;;
         esac
         log_info "Uninstalled: $pkg"
     done
@@ -734,6 +818,12 @@ install_multiple() {
     if ! is_installed starship; then
         pkg_list+=("starship" "Cross-shell prompt" "off")
     fi
+    if ! is_installed ctop; then
+        pkg_list+=("ctop" "Container top (Docker wrapper)" "off")
+    fi
+    if ! is_installed dtop; then
+        pkg_list+=("dtop" "Docker top (Docker wrapper)" "off")
+    fi
 
     if [[ ${#pkg_list[@]} -eq 0 ]]; then
         ui_msgbox "All Installed" "All available software is already installed."
@@ -761,6 +851,8 @@ install_multiple() {
             fzf)            install_fzf ;;
             yq)             install_yq ;;
             starship)       install_starship ;;
+            ctop)           install_ctop ;;
+            dtop)           install_dtop ;;
         esac
     done
 }
