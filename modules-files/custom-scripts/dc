@@ -8,10 +8,11 @@ usage() {
     echo "  e - docker compose exec [container_name] [command]"
     echo "  k - docker compose kill"
     echo "  l - docker compose logs -f --tail=1000"
-    echo "  p - docker compose ps"
+    echo "  p - docker compose pull"
+    echo "  ps - docker compose ps"
     echo "  r - docker compose restart"
     echo "  t - docker compose top"
-    echo "  u - docker compose up -d --pull always"
+    echo "  u - docker compose up -d"
     echo "  v - docker compose volumes"
 }
 
@@ -30,10 +31,19 @@ for (( i=0; i<${#input_string}; i++ )); do
         e) echo "Executing: docker compose exec ${@:2}" &&  docker compose exec ${@:2} ;;
         k) echo "Executing: docker compose kill" && docker compose kill ;;
         l) echo "Executing: docker compose logs -f --tail=1000" && docker compose logs -f --tail=1000 ;;
-        p) echo "Executing: docker compose ps" && docker compose ps ;;
+        p)
+            # Check if next character is 's' for "ps"
+            next_char="${input_string:$((i+1)):1}"
+            if [ "$next_char" = "s" ]; then
+                echo "Executing: docker compose ps" && docker compose ps
+                ((i++))  # skip the 's'
+            else
+                echo "Executing: docker compose pull" && docker compose pull
+            fi
+            ;;
         r) echo "Executing: docker compose restart"  && docker compose restart  ;;
         t) echo "Executing: docker compose top" && docker compose top ;;
-        u) echo "Executing: docker compose up -d --pull always" && docker compose up -d --pull always ;;
+        u) echo "Executing: docker compose up -d" && docker compose up -d ;;
         v) echo "Executing: docker volumes" && docker compose volumes ;;
         *) echo "Unknown option: $char" >&2; usage; exit 1 ;;
     esac
