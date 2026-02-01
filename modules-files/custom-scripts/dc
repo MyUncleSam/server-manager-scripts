@@ -11,7 +11,7 @@ usage() {
     echo "  p - docker compose ps"
     echo "  r - docker compose restart"
     echo "  t - docker compose top"
-    echo "  u - docker compose up -d"
+    echo "  u - docker compose up -d --pull always"
     echo "  v - docker compose volumes"
 }
 
@@ -33,7 +33,7 @@ for (( i=0; i<${#input_string}; i++ )); do
         p) echo "Executing: docker compose ps" && docker compose ps ;;
         r) echo "Executing: docker compose restart"  && docker compose restart  ;;
         t) echo "Executing: docker compose top" && docker compose top ;;
-        u) echo "Executing: docker compose up -d" && docker compose up -d ;;
+        u) echo "Executing: docker compose up -d --pull always" && docker compose up -d --pull always ;;
         v) echo "Executing: docker volumes" && docker compose volumes ;;
         *) echo "Unknown option: $char" >&2; usage; exit 1 ;;
     esac
