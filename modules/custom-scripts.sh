@@ -232,6 +232,64 @@ uninstall_script() {
     ui_msgbox "Uninstallation Results" "$msg"
 }
 
+# Update all installed scripts
+update_all_scripts() {
+    if ! require_root; then
+        return 1
+    fi
+
+    if [[ ! -d "$SCRIPTS_DIR" ]]; then
+        ui_msgbox "Error" "Scripts directory not found:\n$SCRIPTS_DIR"
+        return 1
+    fi
+
+    # Find installed scripts
+    local installed_scripts=()
+    while IFS= read -r script_path; do
+        [[ -z "$script_path" ]] && continue
+
+        local script_name
+        script_name=$(basename "$script_path")
+
+        if is_installed "$script_name"; then
+            installed_scripts+=("$script_name")
+        fi
+    done < <(get_available_scripts)
+
+    if [[ ${#installed_scripts[@]} -eq 0 ]]; then
+        ui_msgbox "Info" "No custom scripts are currently installed"
+        return
+    fi
+
+    if ! ui_yesno "Confirm" "Update all ${#installed_scripts[@]} installed script(s) from source?\n\nThis will overwrite the installed versions in $INSTALL_DIR"; then
+        return
+    fi
+
+    local updated=0
+    local failed=0
+    local output=""
+
+    for script_name in "${installed_scripts[@]}"; do
+        if cp "$SCRIPTS_DIR/$script_name" "$INSTALL_DIR/$script_name" 2>/dev/null; then
+            chmod +x "$INSTALL_DIR/$script_name"
+            output+="Updated: $script_name\n"
+            log_info "Updated custom script: $script_name"
+            ((updated++))
+        else
+            output+="FAILED: $script_name\n"
+            log_error "Failed to update custom script: $script_name"
+            ((failed++))
+        fi
+    done
+
+    local msg="Update complete:\n\n"
+    msg+="Updated: $updated\n"
+    msg+="Failed: $failed\n\n"
+    msg+="$output"
+
+    ui_msgbox "Update Results" "$msg"
+}
+
 # View script content
 view_script() {
     if [[ ! -d "$SCRIPTS_DIR" ]]; then
@@ -277,12 +335,14 @@ module_main() {
         choice=$(ui_menu "Custom Scripts" "Select operation:" \
             "list" "List available scripts" \
             "install" "Install scripts" \
+            "update" "Update all installed scripts" \
             "uninstall" "Uninstall scripts" \
             "view" "View script content") || break
 
         case "$choice" in
             list)      list_scripts ;;
             install)   install_script ;;
+            update)    update_all_scripts ;;
             uninstall) uninstall_script ;;
             view)      view_script ;;
         esac

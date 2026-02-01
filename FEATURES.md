@@ -59,6 +59,16 @@ Install and manage CrowdSec IDS/IPS (Intrusion Detection and Prevention System).
 - **Toggle simulation mode** - Enable/disable simulation (test scenarios without real bans)
 - **Explain decision for IP** - Show why an IP was banned (decisions, alerts, timeline)
 
+## Custom Scripts
+
+Install custom utility scripts system-wide for all users.
+
+- **List available scripts** - Show all scripts with installation status and descriptions
+- **Install scripts** - Select scripts to install to /usr/local/bin via checklist
+- **Update all installed scripts** - Re-copy all currently installed scripts from source to pick up any changes
+- **Uninstall scripts** - Select installed scripts to remove
+- **View script content** - View the source of any available script
+
 ## Cron Jobs
 
 Manage cron jobs and schedules for users and system.
