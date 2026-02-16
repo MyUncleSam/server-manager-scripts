@@ -66,13 +66,14 @@ add_user() {
     selected_groups=$(ui_checklist "Add User" "Select additional groups for $username:" "${groups_list[@]}") || true
 
     # Create user
-    local create_cmd="useradd -m"
+    local output
     if [[ -n "$fullname" ]]; then
-        create_cmd+=" -c \"$fullname\""
+        output=$(useradd -m -c "$fullname" "$username" 2>&1)
+    else
+        output=$(useradd -m "$username" 2>&1)
     fi
-    create_cmd+=" $username"
 
-    if eval "$create_cmd" 2>&1; then
+    if [[ $? -eq 0 ]]; then
         # Set password
         echo "$username:$password" | chpasswd
 
@@ -269,9 +270,11 @@ user_info() {
     fi
 
     # Show info in a message box (use echo -e to interpret \n)
-    echo -e "$info" > /tmp/user_info.txt
-    ui_textbox "User Information" /tmp/user_info.txt
-    rm -f /tmp/user_info.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "User Information" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Change user password

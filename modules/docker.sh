@@ -204,9 +204,11 @@ docker_status() {
     docker_users=$(getent group docker | cut -d: -f4)
     info+="\nDocker Group: ${docker_users:-none}\n"
 
-    echo -e "$info" > /tmp/docker_status.txt
-    ui_textbox "Docker Status" /tmp/docker_status.txt
-    rm -f /tmp/docker_status.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "Docker Status" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Manage Docker service
@@ -270,9 +272,11 @@ list_containers() {
     info+="=== Docker Containers ===\n\n"
     info+="$(docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}\t{{.Ports}}' 2>&1)\n"
 
-    echo -e "$info" > /tmp/docker_containers.txt
-    ui_textbox "Docker Containers" /tmp/docker_containers.txt
-    rm -f /tmp/docker_containers.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "Docker Containers" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # List images
@@ -291,9 +295,11 @@ list_images() {
     info+="=== Docker Images ===\n\n"
     info+="$(docker images --format 'table {{.Repository}}\t{{.Tag}}\t{{.Size}}\t{{.CreatedSince}}' 2>&1)\n"
 
-    echo -e "$info" > /tmp/docker_images.txt
-    ui_textbox "Docker Images" /tmp/docker_images.txt
-    rm -f /tmp/docker_images.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "Docker Images" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Prune system
@@ -369,9 +375,11 @@ view_logs() {
         daemon)
             local logs
             logs=$(journalctl -u docker --no-pager -n 100 2>&1)
-            echo "$logs" > /tmp/docker_daemon_logs.txt
-            ui_textbox "Docker Daemon Logs" /tmp/docker_daemon_logs.txt
-            rm -f /tmp/docker_daemon_logs.txt
+            local tmpfile
+            tmpfile=$(mktemp) || return 1
+            echo "$logs" > "$tmpfile"
+            ui_textbox "Docker Daemon Logs" "$tmpfile"
+            rm -f "$tmpfile"
             ;;
         container)
             if ! service_is_running docker; then
@@ -398,9 +406,11 @@ view_logs() {
 
             local logs
             logs=$(docker logs --tail 100 "$container" 2>&1)
-            echo "$logs" > /tmp/docker_container_logs.txt
-            ui_textbox "Logs: $container" /tmp/docker_container_logs.txt
-            rm -f /tmp/docker_container_logs.txt
+            local tmpfile
+            tmpfile=$(mktemp) || return 1
+            echo "$logs" > "$tmpfile"
+            ui_textbox "Logs: $container" "$tmpfile"
+            rm -f "$tmpfile"
             ;;
     esac
 }
@@ -421,9 +431,11 @@ list_networks() {
     info+="=== Docker Networks ===\n\n"
     info+="$(docker network ls --format 'table {{.Name}}\t{{.Driver}}\t{{.Scope}}' 2>&1)\n"
 
-    echo -e "$info" > /tmp/docker_networks.txt
-    ui_textbox "Docker Networks" /tmp/docker_networks.txt
-    rm -f /tmp/docker_networks.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "Docker Networks" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Create a Docker network
@@ -511,25 +523,20 @@ add_network() {
     fi
 
     # Build docker network create command
-    local cmd="docker network create"
-    cmd+=" --driver=$driver"
-    cmd+=" --subnet=$ipv4_subnet"
-    cmd+=" --gateway=$ipv4_gateway"
+    local -a cmd=(docker network create --driver "$driver" --subnet "$ipv4_subnet" --gateway "$ipv4_gateway")
 
     if [[ "$enable_ipv6" == "yes" ]]; then
-        cmd+=" --ipv6"
-        cmd+=" --subnet=$ipv6_subnet"
-        cmd+=" --gateway=$ipv6_gateway"
+        cmd+=(--ipv6 --subnet "$ipv6_subnet" --gateway "$ipv6_gateway")
     fi
 
-    cmd+=" $network_name"
+    cmd+=("$network_name")
 
     # Create network
     ui_infobox "Creating Network" "Creating Docker network '$network_name'..."
     sleep 1
 
     local output
-    output=$($cmd 2>&1)
+    output=$("${cmd[@]}" 2>&1)
     local exit_code=$?
 
     if [[ $exit_code -eq 0 ]]; then
@@ -570,7 +577,7 @@ remove_network() {
         if [[ "$name" != "bridge" && "$name" != "host" && "$name" != "none" ]]; then
             networks_list+=("$name" "Driver: $driver, Scope: $scope")
         fi
-    done < <(docker network ls --format '{{.Name}} {{.Driver}} {{.Scope}}' 2>/dev/null | tail -n +2)
+    done < <(docker network ls --format '{{.Name}} {{.Driver}} {{.Scope}}' 2>/dev/null)
 
     if [[ ${#networks_list[@]} -eq 0 ]]; then
         ui_msgbox "Info" "No custom networks found to remove"
