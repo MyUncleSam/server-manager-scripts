@@ -202,6 +202,7 @@ LOG_FILE="${LOG_DIR}/server-manager.log"
 init_logging() {
     mkdir -p "$LOG_DIR" 2>/dev/null
     touch "$LOG_FILE" 2>/dev/null
+    chmod 600 "$LOG_FILE" 2>/dev/null
 }
 
 # Log a message
@@ -239,10 +240,25 @@ validate_username() {
     [[ "$username" =~ ^[a-z_][a-z0-9_-]*$ ]] && [[ ${#username} -le 32 ]]
 }
 
-# Validate IP address
+# Validate IP address (checks format and octet ranges 0-255)
 validate_ip() {
     local ip="$1"
-    [[ "$ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]
+    [[ "$ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] || return 1
+    local IFS='.'
+    read -r -a octets <<< "$ip"
+    for octet in "${octets[@]}"; do
+        (( octet > 255 )) && return 1
+    done
+    return 0
+}
+
+# Escape a string for use as sed replacement text
+sed_escape() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\//\\/}"
+    s="${s//&/\\&}"
+    printf '%s' "$s"
 }
 
 # Validate port number
