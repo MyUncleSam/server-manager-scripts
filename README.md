@@ -108,6 +108,17 @@ module_main() {
 }
 ```
 
+## Security
+
+This project follows security best practices:
+
+- No use of `eval` for command construction - all commands use direct execution or arrays
+- Temporary files created with `mktemp` (unpredictable paths, no symlink attacks)
+- Remote installation scripts are downloaded to temp files before execution (no `curl | bash`)
+- User input is escaped before use in `sed` replacement patterns
+- IP address validation includes octet range checking (0-255)
+- Log files are created with restricted permissions (600)
+
 ## Contributing
 
 1. Fork the repository

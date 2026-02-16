@@ -127,7 +127,7 @@ Install and configure fail2ban intrusion prevention.
 - **Disable jail**
 - **Ban/Unban IP manually**
 - **Clear all bans** - Unban all IPs from all jails
-- **Whitelist IP** - Never ban specific IPs
+- **Whitelist IP** - Never ban specific IPs (with IP validation)
 - **View log**
 - **Restart service**
 
@@ -210,7 +210,7 @@ Configure system Message of the Day banner.
 
 Configure SSH server settings and security.
 
-- **Show SSH status**
+- **Show SSH status** - Uses `sshd -T` for effective configuration (falls back to config file parsing)
 - **Install colored prompt** - Format: username@pretty-hostname /path $ (Username=Red/Green, @=Yellow, Hostname=Light Blue, Path=Yellow)
 - **Remove colored prompt**
 - **Change SSH port**
@@ -287,7 +287,7 @@ Configure automatic system updates.
 - **Enable/Disable unattended upgrades**
 - **Configure automatic reboot** - Enable, disable, set time
 - **Configure remove unused dependencies**
-- **Configure update origins** - Security, updates, proposed, backports
+- **Configure update origins** - Security, updates, proposed, backports (writes directly to config file)
 - **Run unattended-upgrade now**
 
 ## Update Alternatives
