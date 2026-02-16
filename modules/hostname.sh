@@ -31,9 +31,11 @@ show_hostname_info() {
     info+="\n=== /etc/hosts ===\n\n"
     info+="$(cat /etc/hosts)\n"
 
-    echo -e "$info" > /tmp/hostname_info.txt
-    ui_textbox "Hostname Information" /tmp/hostname_info.txt
-    rm -f /tmp/hostname_info.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "Hostname Information" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Set hostname
@@ -227,9 +229,11 @@ remove_hosts_entry() {
         return
     fi
 
-    echo -e "Current entries:\n\n$entries" > /tmp/hosts_entries.txt
-    ui_textbox "Hosts Entries" /tmp/hosts_entries.txt
-    rm -f /tmp/hosts_entries.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "Current entries:\n\n$entries" > "$tmpfile"
+    ui_textbox "Hosts Entries" "$tmpfile"
+    rm -f "$tmpfile"
 
     local line_num
     line_num=$(ui_inputbox "Remove Entry" "Enter line number to remove:") || return
@@ -271,9 +275,11 @@ edit_hosts_entry() {
         return
     fi
 
-    echo -e "Current entries:\n\n$entries" > /tmp/hosts_entries.txt
-    ui_textbox "Hosts Entries" /tmp/hosts_entries.txt
-    rm -f /tmp/hosts_entries.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "Current entries:\n\n$entries" > "$tmpfile"
+    ui_textbox "Hosts Entries" "$tmpfile"
+    rm -f "$tmpfile"
 
     local line_num
     line_num=$(ui_inputbox "Edit Entry" "Enter line number to edit:") || return
@@ -304,7 +310,9 @@ edit_hosts_entry() {
     # Replace the line
     local actual_line
     actual_line=$(grep -n "^$line_content$" /etc/hosts | head -1 | cut -d: -f1)
-    sed -i "${actual_line}s/.*/$new_content/" /etc/hosts
+    local escaped_content
+    escaped_content=$(sed_escape "$new_content")
+    sed -i "${actual_line}s/.*/${escaped_content}/" /etc/hosts
 
     log_info "Edited hosts entry: $line_content -> $new_content"
     ui_msgbox "Success" "Entry updated"

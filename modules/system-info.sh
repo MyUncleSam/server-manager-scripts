@@ -77,9 +77,11 @@ show_basic_info() {
     done < <(ls /sys/class/net/ | grep -v lo)
 
     # Write to temp file and display
-    echo -e "$info" > /tmp/system_info.txt
-    ui_textbox "System Information" /tmp/system_info.txt
-    rm -f /tmp/system_info.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "System Information" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Show running services
@@ -87,9 +89,11 @@ show_services() {
     local services
     services=$(systemctl list-units --type=service --state=running --no-pager --no-legend | awk '{print $1, $4}' | head -30)
 
-    echo -e "=== Running Services ===\n\n$services" > /tmp/services_info.txt
-    ui_textbox "Running Services" /tmp/services_info.txt
-    rm -f /tmp/services_info.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "=== Running Services ===\n\n$services" > "$tmpfile"
+    ui_textbox "Running Services" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Show listening ports
@@ -97,9 +101,11 @@ show_ports() {
     local ports
     ports=$(ss -tuln | grep LISTEN | awk '{print $1, $5}' | sort -t: -k2 -n)
 
-    echo -e "=== Listening Ports ===\n\nProto Address\n$ports" > /tmp/ports_info.txt
-    ui_textbox "Listening Ports" /tmp/ports_info.txt
-    rm -f /tmp/ports_info.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "=== Listening Ports ===\n\nProto Address\n$ports" > "$tmpfile"
+    ui_textbox "Listening Ports" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Show top processes
@@ -107,9 +113,11 @@ show_processes() {
     local processes
     processes=$(ps aux --sort=-%mem | head -20 | awk '{printf "%-10s %5s %5s %s\n", $1, $3, $4, $11}')
 
-    echo -e "=== Top Processes (by Memory) ===\n\nUSER       %CPU  %MEM COMMAND\n$processes" > /tmp/proc_info.txt
-    ui_textbox "Top Processes" /tmp/proc_info.txt
-    rm -f /tmp/proc_info.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "=== Top Processes (by Memory) ===\n\nUSER       %CPU  %MEM COMMAND\n$processes" > "$tmpfile"
+    ui_textbox "Top Processes" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Show disk I/O
@@ -122,9 +130,11 @@ show_disk_io() {
     local io_info
     io_info=$(iostat -d -h 1 1)
 
-    echo -e "=== Disk I/O Statistics ===\n\n$io_info" > /tmp/io_info.txt
-    ui_textbox "Disk I/O" /tmp/io_info.txt
-    rm -f /tmp/io_info.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "=== Disk I/O Statistics ===\n\n$io_info" > "$tmpfile"
+    ui_textbox "Disk I/O" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Show security information
@@ -170,9 +180,11 @@ show_security_info() {
         info+="Packages upgradable: $updates\n"
     fi
 
-    echo -e "$info" > /tmp/security_info.txt
-    ui_textbox "Security Information" /tmp/security_info.txt
-    rm -f /tmp/security_info.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "Security Information" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Show hardware information
@@ -198,9 +210,11 @@ show_hardware_info() {
         info+="$(lspci 2>&1 | head -20)\n"
     fi
 
-    echo -e "$info" > /tmp/hardware_info.txt
-    ui_textbox "Hardware Information" /tmp/hardware_info.txt
-    rm -f /tmp/hardware_info.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "Hardware Information" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Show temperature
@@ -219,9 +233,11 @@ show_temperature() {
     local temps
     temps=$(sensors 2>&1)
 
-    echo "$temps" > /tmp/temperatures.txt
-    ui_textbox "System Temperatures" /tmp/temperatures.txt
-    rm -f /tmp/temperatures.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo "$temps" > "$tmpfile"
+    ui_textbox "System Temperatures" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Export system report

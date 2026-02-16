@@ -44,9 +44,11 @@ show_status() {
         info+="/etc/update-motd.d not found\n"
     fi
 
-    echo -e "$info" > /tmp/motd_status.txt
-    ui_textbox "MOTD Status" /tmp/motd_status.txt
-    rm -f /tmp/motd_status.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "MOTD Status" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Show current MOTD
@@ -56,9 +58,11 @@ show_current_motd() {
         output=$(run-parts /etc/update-motd.d 2>/dev/null)
 
         if [[ -n "$output" ]]; then
-            echo "$output" > /tmp/current_motd.txt
-            ui_textbox "Current MOTD" /tmp/current_motd.txt
-            rm -f /tmp/current_motd.txt
+            local tmpfile
+            tmpfile=$(mktemp) || return 1
+            echo "$output" > "$tmpfile"
+            ui_textbox "Current MOTD" "$tmpfile"
+            rm -f "$tmpfile"
         else
             ui_msgbox "Info" "No MOTD content generated"
         fi
@@ -104,9 +108,11 @@ preview_motd() {
     preview+=" IP:     $(hostname -I | awk '{print $1}')\n"
     preview+="─────────────────────────────────────────\n"
 
-    echo -e "$preview" > /tmp/motd_preview.txt
-    ui_textbox "MOTD Preview (Font: $font, Hostname: $hostname_type)" /tmp/motd_preview.txt
-    rm -f /tmp/motd_preview.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$preview" > "$tmpfile"
+    ui_textbox "MOTD Preview (Font: $font, Hostname: $hostname_type)" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Install MOTD hostname banner

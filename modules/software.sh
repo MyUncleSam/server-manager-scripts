@@ -92,9 +92,11 @@ show_status() {
         info+="dtop:          Not installed\n"
     fi
 
-    echo -e "$info" > /tmp/software_status.txt
-    ui_textbox "Software Status" /tmp/software_status.txt
-    rm -f /tmp/software_status.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "Software Status" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Install rclone
@@ -118,13 +120,22 @@ install_rclone() {
 
     ui_infobox "Installing" "Installing rclone..."
 
-    # Use official install script
-    if curl -fsSL https://rclone.org/install.sh | bash 2>&1; then
+    # Use official install script - download before executing
+    local install_script
+    install_script=$(mktemp) || return 1
+    if ! curl -fsSL https://rclone.org/install.sh -o "$install_script" 2>/dev/null; then
+        rm -f "$install_script"
+        ui_msgbox "Error" "Failed to download rclone installation script"
+        return 1
+    fi
+    if bash "$install_script" 2>&1; then
+        rm -f "$install_script"
         log_info "rclone installed"
         local ver
         ver=$(rclone version | head -1)
         ui_msgbox "Success" "rclone installed successfully\n\n$ver"
     else
+        rm -f "$install_script"
         ui_msgbox "Error" "Failed to install rclone"
         return 1
     fi
@@ -168,8 +179,16 @@ install_lazydocker() {
 
     ui_infobox "Installing" "Installing lazydocker..."
 
-    # Use official install script
-    if curl -fsSL https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash 2>&1; then
+    # Use official install script - download before executing
+    local install_script
+    install_script=$(mktemp) || return 1
+    if ! curl -fsSL https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh -o "$install_script" 2>/dev/null; then
+        rm -f "$install_script"
+        ui_msgbox "Error" "Failed to download lazydocker installation script"
+        return 1
+    fi
+    if bash "$install_script" 2>&1; then
+        rm -f "$install_script"
         # Move to system path
         if [[ -f "$HOME/.local/bin/lazydocker" ]]; then
             mv "$HOME/.local/bin/lazydocker" /usr/local/bin/
@@ -177,6 +196,7 @@ install_lazydocker() {
         log_info "lazydocker installed"
         ui_msgbox "Success" "lazydocker installed successfully"
     else
+        rm -f "$install_script"
         ui_msgbox "Error" "Failed to install lazydocker"
         return 1
     fi
@@ -554,11 +574,20 @@ install_starship() {
 
     ui_infobox "Installing" "Installing starship..."
 
-    # Use official install script
-    if curl -fsSL https://starship.rs/install.sh | sh -s -- -y 2>&1; then
+    # Use official install script - download before executing
+    local install_script
+    install_script=$(mktemp) || return 1
+    if ! curl -fsSL https://starship.rs/install.sh -o "$install_script" 2>/dev/null; then
+        rm -f "$install_script"
+        ui_msgbox "Error" "Failed to download starship installation script"
+        return 1
+    fi
+    if sh "$install_script" -- -y 2>&1; then
+        rm -f "$install_script"
         log_info "starship installed"
         ui_msgbox "Success" "starship installed successfully\n\nAdd to your ~/.bashrc:\neval \"\$(starship init bash)\""
     else
+        rm -f "$install_script"
         ui_msgbox "Error" "Failed to install starship"
         return 1
     fi
@@ -723,46 +752,52 @@ update_all() {
         ui_infobox "Updating" "Updating $pkg..."
         case "$pkg" in
             rclone)
-                curl -fsSL https://rclone.org/install.sh | bash &>/dev/null
+                local install_script=$(mktemp) && curl -fsSL https://rclone.org/install.sh -o "$install_script" 2>/dev/null && bash "$install_script" &>/dev/null; rm -f "$install_script"
                 ;;
             lazydocker)
-                curl -fsSL https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash &>/dev/null
+                local install_script=$(mktemp) && curl -fsSL https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh -o "$install_script" 2>/dev/null && bash "$install_script" &>/dev/null; rm -f "$install_script"
                 [[ -f "$HOME/.local/bin/lazydocker" ]] && mv "$HOME/.local/bin/lazydocker" /usr/local/bin/
                 ;;
             lazygit)
                 local ver=$(curl -fsSL https://api.github.com/repos/jesseduffield/lazygit/releases/latest | jq -r .tag_name | tr -d 'v')
                 local arch=$(uname -m); [[ "$arch" == "x86_64" ]] && arch="x86_64" || arch="arm64"
-                curl -fsSL "https://github.com/jesseduffield/lazygit/releases/download/v${ver}/lazygit_${ver}_Linux_${arch}.tar.gz" -o /tmp/lazygit.tar.gz
-                tar xzf /tmp/lazygit.tar.gz -C /tmp lazygit && mv /tmp/lazygit /usr/local/bin/ && rm -f /tmp/lazygit.tar.gz
+                local dl_dir=$(mktemp -d) || return 1
+                curl -fsSL "https://github.com/jesseduffield/lazygit/releases/download/v${ver}/lazygit_${ver}_Linux_${arch}.tar.gz" -o "$dl_dir/lazygit.tar.gz"
+                tar xzf "$dl_dir/lazygit.tar.gz" -C "$dl_dir" lazygit && mv "$dl_dir/lazygit" /usr/local/bin/ && rm -rf "$dl_dir"
                 ;;
             btop)
                 local ver=$(curl -fsSL https://api.github.com/repos/aristocratos/btop/releases/latest | jq -r .tag_name | tr -d 'v')
-                curl -fsSL "https://github.com/aristocratos/btop/releases/download/v${ver}/btop-$(uname -m)-linux-musl.tbz" -o /tmp/btop.tbz
-                tar xjf /tmp/btop.tbz -C /tmp && cd /tmp/btop && make install PREFIX=/usr/local &>/dev/null && cd /tmp && rm -rf btop btop.tbz
+                local dl_dir=$(mktemp -d) || return 1
+                curl -fsSL "https://github.com/aristocratos/btop/releases/download/v${ver}/btop-$(uname -m)-linux-musl.tbz" -o "$dl_dir/btop.tbz"
+                tar xjf "$dl_dir/btop.tbz" -C "$dl_dir" && cd "$dl_dir/btop" && make install PREFIX=/usr/local &>/dev/null && cd / && rm -rf "$dl_dir"
                 ;;
             bat)
                 local ver=$(curl -fsSL https://api.github.com/repos/sharkdp/bat/releases/latest | jq -r .tag_name | tr -d 'v')
                 local arch=$(uname -m); [[ "$arch" == "x86_64" ]] && arch="x86_64-unknown-linux-musl" || arch="aarch64-unknown-linux-gnu"
-                curl -fsSL "https://github.com/sharkdp/bat/releases/download/v${ver}/bat-v${ver}-${arch}.tar.gz" -o /tmp/bat.tar.gz
-                tar xzf /tmp/bat.tar.gz -C /tmp && cp "/tmp/bat-v${ver}-${arch}/bat" /usr/local/bin/ && rm -rf /tmp/bat.tar.gz "/tmp/bat-v${ver}-${arch}"
+                local dl_dir=$(mktemp -d) || return 1
+                curl -fsSL "https://github.com/sharkdp/bat/releases/download/v${ver}/bat-v${ver}-${arch}.tar.gz" -o "$dl_dir/bat.tar.gz"
+                tar xzf "$dl_dir/bat.tar.gz" -C "$dl_dir" && cp "$dl_dir/bat-v${ver}-${arch}/bat" /usr/local/bin/ && rm -rf "$dl_dir"
                 ;;
             fd)
                 local ver=$(curl -fsSL https://api.github.com/repos/sharkdp/fd/releases/latest | jq -r .tag_name | tr -d 'v')
                 local arch=$(uname -m); [[ "$arch" == "x86_64" ]] && arch="x86_64-unknown-linux-musl" || arch="aarch64-unknown-linux-gnu"
-                curl -fsSL "https://github.com/sharkdp/fd/releases/download/v${ver}/fd-v${ver}-${arch}.tar.gz" -o /tmp/fd.tar.gz
-                tar xzf /tmp/fd.tar.gz -C /tmp && cp "/tmp/fd-v${ver}-${arch}/fd" /usr/local/bin/ && rm -rf /tmp/fd.tar.gz "/tmp/fd-v${ver}-${arch}"
+                local dl_dir=$(mktemp -d) || return 1
+                curl -fsSL "https://github.com/sharkdp/fd/releases/download/v${ver}/fd-v${ver}-${arch}.tar.gz" -o "$dl_dir/fd.tar.gz"
+                tar xzf "$dl_dir/fd.tar.gz" -C "$dl_dir" && cp "$dl_dir/fd-v${ver}-${arch}/fd" /usr/local/bin/ && rm -rf "$dl_dir"
                 ;;
             ripgrep)
                 local ver=$(curl -fsSL https://api.github.com/repos/BurntSushi/ripgrep/releases/latest | jq -r .tag_name)
                 local arch=$(uname -m); [[ "$arch" == "x86_64" ]] && arch="x86_64-unknown-linux-musl" || arch="aarch64-unknown-linux-gnu"
-                curl -fsSL "https://github.com/BurntSushi/ripgrep/releases/download/${ver}/ripgrep-${ver}-${arch}.tar.gz" -o /tmp/rg.tar.gz
-                tar xzf /tmp/rg.tar.gz -C /tmp && cp "/tmp/ripgrep-${ver}-${arch}/rg" /usr/local/bin/ && rm -rf /tmp/rg.tar.gz "/tmp/ripgrep-${ver}-${arch}"
+                local dl_dir=$(mktemp -d) || return 1
+                curl -fsSL "https://github.com/BurntSushi/ripgrep/releases/download/${ver}/ripgrep-${ver}-${arch}.tar.gz" -o "$dl_dir/rg.tar.gz"
+                tar xzf "$dl_dir/rg.tar.gz" -C "$dl_dir" && cp "$dl_dir/ripgrep-${ver}-${arch}/rg" /usr/local/bin/ && rm -rf "$dl_dir"
                 ;;
             fzf)
                 local ver=$(curl -fsSL https://api.github.com/repos/junegunn/fzf/releases/latest | jq -r .tag_name | tr -d 'v')
                 local arch=$(uname -m); [[ "$arch" == "x86_64" ]] && arch="amd64" || arch="arm64"
-                curl -fsSL "https://github.com/junegunn/fzf/releases/download/v${ver}/fzf-${ver}-linux_${arch}.tar.gz" -o /tmp/fzf.tar.gz
-                tar xzf /tmp/fzf.tar.gz -C /tmp && mv /tmp/fzf /usr/local/bin/ && rm -f /tmp/fzf.tar.gz
+                local dl_dir=$(mktemp -d) || return 1
+                curl -fsSL "https://github.com/junegunn/fzf/releases/download/v${ver}/fzf-${ver}-linux_${arch}.tar.gz" -o "$dl_dir/fzf.tar.gz"
+                tar xzf "$dl_dir/fzf.tar.gz" -C "$dl_dir" && mv "$dl_dir/fzf" /usr/local/bin/ && rm -rf "$dl_dir"
                 ;;
             yq)
                 local ver=$(curl -fsSL https://api.github.com/repos/mikefarah/yq/releases/latest | jq -r .tag_name)
@@ -770,7 +805,7 @@ update_all() {
                 curl -fsSL "https://github.com/mikefarah/yq/releases/download/${ver}/yq_linux_${arch}" -o /usr/local/bin/yq && chmod +x /usr/local/bin/yq
                 ;;
             starship)
-                curl -fsSL https://starship.rs/install.sh | sh -s -- -y &>/dev/null
+                local install_script=$(mktemp) && curl -fsSL https://starship.rs/install.sh -o "$install_script" 2>/dev/null && sh "$install_script" -- -y &>/dev/null; rm -f "$install_script"
                 ;;
         esac
         log_info "Updated: $pkg"

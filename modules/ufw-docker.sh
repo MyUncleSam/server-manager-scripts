@@ -156,9 +156,11 @@ show_status() {
         info+="Script:       $UFW_DOCKER_SCRIPT\n"
     else
         info+="Installed:    No\n"
-        echo -e "$info" > /tmp/ufw_docker_status.txt
-        ui_textbox "UFW-Docker Status" /tmp/ufw_docker_status.txt
-        rm -f /tmp/ufw_docker_status.txt
+        local tmpfile
+        tmpfile=$(mktemp) || return 1
+        echo -e "$info" > "$tmpfile"
+        ui_textbox "UFW-Docker Status" "$tmpfile"
+        rm -f "$tmpfile"
         return
     fi
 
@@ -193,9 +195,11 @@ show_status() {
         fi
     fi
 
-    echo -e "$info" > /tmp/ufw_docker_status.txt
-    ui_textbox "UFW-Docker Status" /tmp/ufw_docker_status.txt
-    rm -f /tmp/ufw_docker_status.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "UFW-Docker Status" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Allow container access
@@ -283,9 +287,11 @@ delete_rule() {
     fi
 
     # Show rules and ask for container name
-    echo -e "Current rules:\n\n$rules" > /tmp/rules.txt
-    ui_textbox "Current Rules" /tmp/rules.txt
-    rm -f /tmp/rules.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "Current rules:\n\n$rules" > "$tmpfile"
+    ui_textbox "Current Rules" "$tmpfile"
+    rm -f "$tmpfile"
 
     local container_name
     container_name=$(ui_inputbox "Delete Rule" "Enter container name to delete rules for:") || return

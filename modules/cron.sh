@@ -53,14 +53,17 @@ list_users_with_crontabs() {
         done
     fi
 
-    echo -e "$info" > /tmp/cron_users.txt
-    ui_textbox "Cron Users" /tmp/cron_users.txt
-    rm -f /tmp/cron_users.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "Cron Users" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # View all crontabs at once
 view_all_crontabs() {
-    local tmpfile="/tmp/all_crontabs.txt"
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
     local users
     users=$(get_all_users_with_crontabs)
 
@@ -118,7 +121,8 @@ view_user_crontab() {
     local user
     user=$(ui_menu "View Crontab" "Select user:" "${user_list[@]}") || return
 
-    local tmpfile="/tmp/crontab_${user}.txt"
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
     crontab -l -u "$user" 2>/dev/null > "$tmpfile"
 
     # Try syntax highlighting if bat is available
@@ -163,7 +167,8 @@ edit_user_crontab() {
 
     # Run crontab -e directly (uses system default editor)
     # Capture output to show result to user
-    local result_file="/tmp/crontab_edit_result.$$"
+    local result_file
+    result_file=$(mktemp) || return 1
     clear
     crontab -e -u "$user" 2>"$result_file"
     local exit_code=$?
@@ -286,9 +291,11 @@ list_cronfiles() {
         info+="\nNo cron files found in $CRONFILES_DIR\n"
     fi
 
-    echo -e "$info" > /tmp/cronfiles_list.txt
-    ui_textbox "System Cron Files" /tmp/cronfiles_list.txt
-    rm -f /tmp/cronfiles_list.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "System Cron Files" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Install cron file(s)

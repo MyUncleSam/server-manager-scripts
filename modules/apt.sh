@@ -192,9 +192,11 @@ search_packages() {
     else
         local count
         count=$(echo "$results" | wc -l)
-        echo -e "=== Search Results ($count) ===\n\n$results" > /tmp/apt_search.txt
-        ui_textbox "Search Results" /tmp/apt_search.txt
-        rm -f /tmp/apt_search.txt
+        local tmpfile
+        tmpfile=$(mktemp) || return 1
+        echo -e "=== Search Results ($count) ===\n\n$results" > "$tmpfile"
+        ui_textbox "Search Results" "$tmpfile"
+        rm -f "$tmpfile"
     fi
 }
 
@@ -211,9 +213,11 @@ show_package_info() {
     info=$(apt-cache show "$package" 2>&1)
 
     if [[ $? -eq 0 ]]; then
-        echo "$info" > /tmp/pkg_info.txt
-        ui_textbox "Package: $package" /tmp/pkg_info.txt
-        rm -f /tmp/pkg_info.txt
+        local tmpfile
+        tmpfile=$(mktemp) || return 1
+        echo "$info" > "$tmpfile"
+        ui_textbox "Package: $package" "$tmpfile"
+        rm -f "$tmpfile"
     else
         ui_msgbox "Error" "Package '$package' not found"
     fi
@@ -236,9 +240,11 @@ list_installed() {
     else
         local count
         count=$(echo "$packages" | wc -l)
-        echo -e "=== Installed Packages ($count) ===\n\n$packages" > /tmp/installed.txt
-        ui_textbox "Installed Packages" /tmp/installed.txt
-        rm -f /tmp/installed.txt
+        local tmpfile
+        tmpfile=$(mktemp) || return 1
+        echo -e "=== Installed Packages ($count) ===\n\n$packages" > "$tmpfile"
+        ui_textbox "Installed Packages" "$tmpfile"
+        rm -f "$tmpfile"
     fi
 }
 
@@ -406,9 +412,11 @@ show_apt_history() {
     local log_file="/var/log/apt/history.log"
 
     if [[ -f "$log_file" ]]; then
-        tail -500 "$log_file" > /tmp/apt_history.txt
-        ui_textbox "APT History" /tmp/apt_history.txt
-        rm -f /tmp/apt_history.txt
+        local tmpfile
+        tmpfile=$(mktemp) || return 1
+        tail -500 "$log_file" > "$tmpfile"
+        ui_textbox "APT History" "$tmpfile"
+        rm -f "$tmpfile"
     else
         ui_msgbox "Error" "APT history log not found"
     fi
@@ -475,9 +483,11 @@ show_cache_size() {
     autoremove=$(apt-get --dry-run autoremove 2>/dev/null | grep "^Remv" | wc -l)
     info+="Auto-removable:   $autoremove\n"
 
-    echo -e "$info" > /tmp/apt_cache_info.txt
-    ui_textbox "APT Cache Info" /tmp/apt_cache_info.txt
-    rm -f /tmp/apt_cache_info.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "APT Cache Info" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Hold package
@@ -544,9 +554,11 @@ show_dependencies() {
     local deps
     deps=$(apt-cache depends "$package" 2>&1)
 
-    echo "$deps" > /tmp/apt_deps.txt
-    ui_textbox "Dependencies: $package" /tmp/apt_deps.txt
-    rm -f /tmp/apt_deps.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo "$deps" > "$tmpfile"
+    ui_textbox "Dependencies: $package" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Verify packages
@@ -571,9 +583,11 @@ verify_packages() {
     if [[ -z "$result" ]]; then
         ui_msgbox "Success" "All package files verified successfully"
     else
-        echo "$result" > /tmp/debsums_result.txt
-        ui_textbox "Verification Issues" /tmp/debsums_result.txt
-        rm -f /tmp/debsums_result.txt
+        local tmpfile
+        tmpfile=$(mktemp) || return 1
+        echo "$result" > "$tmpfile"
+        ui_textbox "Verification Issues" "$tmpfile"
+        rm -f "$tmpfile"
     fi
 }
 

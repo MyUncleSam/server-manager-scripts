@@ -87,9 +87,11 @@ show_unattended_status() {
         info+="Package:      Installed\n"
     else
         info+="Package:      Not installed\n"
-        echo -e "$info" > /tmp/unattended_status.txt
-        ui_textbox "Unattended Upgrades Status" /tmp/unattended_status.txt
-        rm -f /tmp/unattended_status.txt
+        local tmpfile
+        tmpfile=$(mktemp) || return 1
+        echo -e "$info" > "$tmpfile"
+        ui_textbox "Unattended Upgrades Status" "$tmpfile"
+        rm -f "$tmpfile"
         return
     fi
 
@@ -128,9 +130,11 @@ show_unattended_status() {
         fi
     fi
 
-    echo -e "$info" > /tmp/unattended_status.txt
-    ui_textbox "Unattended Upgrades Status" /tmp/unattended_status.txt
-    rm -f /tmp/unattended_status.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "Unattended Upgrades Status" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Configure automatic reboot
@@ -269,9 +273,27 @@ configure_origins() {
     fi
 
     # Update the config file
-    # This is a simplified approach - a full implementation would parse and update the existing file
+    backup_file "$UNATTENDED_CONF"
+
+    # Build the new origins block
+    local new_block="Unattended-Upgrade::Allowed-Origins {\n${origins_config}};"
+
+    # Replace the existing Allowed-Origins block or append
+    if grep -q "Unattended-Upgrade::Allowed-Origins" "$UNATTENDED_CONF" 2>/dev/null; then
+        # Remove existing block (from Allowed-Origins to closing };)
+        sed -i '/Unattended-Upgrade::Allowed-Origins/,/^};/d' "$UNATTENDED_CONF"
+        # Prepend new block
+        local tmpconf
+        tmpconf=$(mktemp) || return 1
+        echo -e "$new_block" > "$tmpconf"
+        cat "$UNATTENDED_CONF" >> "$tmpconf"
+        mv "$tmpconf" "$UNATTENDED_CONF"
+    else
+        echo -e "\n$new_block" >> "$UNATTENDED_CONF"
+    fi
+
     log_info "Update origins configured"
-    ui_msgbox "Success" "Update origins have been configured.\n\nNote: For complex configurations, please edit $UNATTENDED_CONF manually."
+    ui_msgbox "Success" "Update origins have been configured."
 }
 
 # Run unattended-upgrade manually
@@ -288,9 +310,11 @@ run_unattended_now() {
         local output
         output=$(unattended-upgrade -v 2>&1)
 
-        echo "$output" > /tmp/unattended_output.txt
-        ui_textbox "Unattended Upgrade Output" /tmp/unattended_output.txt
-        rm -f /tmp/unattended_output.txt
+        local tmpfile
+        tmpfile=$(mktemp) || return 1
+        echo "$output" > "$tmpfile"
+        ui_textbox "Unattended Upgrade Output" "$tmpfile"
+        rm -f "$tmpfile"
 
         log_info "Manual unattended-upgrade executed"
     fi

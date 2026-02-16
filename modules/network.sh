@@ -87,9 +87,11 @@ show_status() {
         fi
     fi
 
-    echo -e "$info" > /tmp/network_status.txt
-    ui_textbox "Network Status" /tmp/network_status.txt
-    rm -f /tmp/network_status.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "Network Status" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Select network interface
@@ -124,7 +126,7 @@ get_netplan_file() {
     config_file=$(grep -l "$iface" "$NETPLAN_DIR"/*.yaml 2>/dev/null | head -1)
 
     if [[ -z "$config_file" ]]; then
-        config_file="$NETPLAN_DIR/01-netcfg.yaml"
+        config_file="$NETPLAN_DIR/99-server-manager-${iface}.yaml"
     fi
 
     echo "$config_file"
@@ -554,9 +556,11 @@ show_netplan_config() {
         all_config+="\n\n"
     done
 
-    echo -e "$all_config" > /tmp/netplan_config.txt
-    ui_textbox "Netplan Configuration" /tmp/netplan_config.txt
-    rm -f /tmp/netplan_config.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$all_config" > "$tmpfile"
+    ui_textbox "Netplan Configuration" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Configure DNS servers
@@ -633,9 +637,11 @@ test_connectivity() {
         fi
     done
 
-    echo -e "$info" > /tmp/connectivity_test.txt
-    ui_textbox "Connectivity Test" /tmp/connectivity_test.txt
-    rm -f /tmp/connectivity_test.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "Connectivity Test" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Show routing table
@@ -646,9 +652,11 @@ show_routing_table() {
     info+="=== IPv6 Routing Table ===\n\n"
     info+="$(ip -6 route show 2>/dev/null)\n"
 
-    echo -e "$info" > /tmp/routing_table.txt
-    ui_textbox "Routing Table" /tmp/routing_table.txt
-    rm -f /tmp/routing_table.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "Routing Table" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Add static route
@@ -680,9 +688,11 @@ manage_dns_resolv() {
     info+="=== Current DNS Configuration ===\n\n"
     info+="$(cat /etc/resolv.conf)\n"
 
-    echo -e "$info" > /tmp/dns_config.txt
-    ui_textbox "DNS Configuration" /tmp/dns_config.txt
-    rm -f /tmp/dns_config.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "DNS Configuration" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Quick setup - configure interface with common settings

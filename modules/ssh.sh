@@ -57,30 +57,35 @@ show_status() {
         info+="Service:      Stopped\n"
     fi
 
-    # Get current settings
-    local port
-    port=$(grep "^Port " "$SSHD_CONFIG" 2>/dev/null | awk '{print $2}')
+    # Get effective settings via sshd -T (falls back to config file parsing)
+    local sshd_effective
+    sshd_effective=$(sshd -T 2>/dev/null)
+
+    if [[ -n "$sshd_effective" ]]; then
+        local port=$(echo "$sshd_effective" | awk '/^port /{print $2}')
+        local root_login=$(echo "$sshd_effective" | awk '/^permitrootlogin /{print $2}')
+        local password_auth=$(echo "$sshd_effective" | awk '/^passwordauthentication /{print $2}')
+        local pubkey_auth=$(echo "$sshd_effective" | awk '/^pubkeyauthentication /{print $2}')
+        local x11_forward=$(echo "$sshd_effective" | awk '/^x11forwarding /{print $2}')
+    else
+        local port=$(grep "^Port " "$SSHD_CONFIG" 2>/dev/null | awk '{print $2}')
+        local root_login=$(grep "^PermitRootLogin " "$SSHD_CONFIG" 2>/dev/null | awk '{print $2}')
+        local password_auth=$(grep "^PasswordAuthentication " "$SSHD_CONFIG" 2>/dev/null | awk '{print $2}')
+        local pubkey_auth=$(grep "^PubkeyAuthentication " "$SSHD_CONFIG" 2>/dev/null | awk '{print $2}')
+        local x11_forward=$(grep "^X11Forwarding " "$SSHD_CONFIG" 2>/dev/null | awk '{print $2}')
+    fi
+
     info+="Port:         ${port:-22}\n"
-
-    local root_login
-    root_login=$(grep "^PermitRootLogin " "$SSHD_CONFIG" 2>/dev/null | awk '{print $2}')
     info+="Root Login:   ${root_login:-prohibit-password}\n"
-
-    local password_auth
-    password_auth=$(grep "^PasswordAuthentication " "$SSHD_CONFIG" 2>/dev/null | awk '{print $2}')
     info+="Password Auth: ${password_auth:-yes}\n"
-
-    local pubkey_auth
-    pubkey_auth=$(grep "^PubkeyAuthentication " "$SSHD_CONFIG" 2>/dev/null | awk '{print $2}')
     info+="Pubkey Auth:  ${pubkey_auth:-yes}\n"
-
-    local x11_forward
-    x11_forward=$(grep "^X11Forwarding " "$SSHD_CONFIG" 2>/dev/null | awk '{print $2}')
     info+="X11 Forward:  ${x11_forward:-yes}\n"
 
-    echo -e "$info" > /tmp/ssh_status.txt
-    ui_textbox "SSH Status" /tmp/ssh_status.txt
-    rm -f /tmp/ssh_status.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "SSH Status" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Change SSH port
@@ -460,9 +465,11 @@ generate_key_pair() {
         local pub_key
         pub_key=$(cat "${key_file}.pub")
 
-        echo -e "Key pair generated!\n\nPrivate key: $key_file\nPublic key: ${key_file}.pub\n\nPublic key content:\n$pub_key" > /tmp/keygen_result.txt
-        ui_textbox "Key Generated" /tmp/keygen_result.txt
-        rm -f /tmp/keygen_result.txt
+        local tmpfile
+        tmpfile=$(mktemp) || return 1
+        echo -e "Key pair generated!\n\nPrivate key: $key_file\nPublic key: ${key_file}.pub\n\nPublic key content:\n$pub_key" > "$tmpfile"
+        ui_textbox "Key Generated" "$tmpfile"
+        rm -f "$tmpfile"
     else
         ui_msgbox "Error" "Failed to generate key:\n$output"
     fi
@@ -498,9 +505,11 @@ remove_authorized_key() {
     local keys
     keys=$(nl -ba "$auth_file")
 
-    echo -e "Authorized keys for $user:\n\n$keys" > /tmp/auth_keys.txt
-    ui_textbox "Authorized Keys" /tmp/auth_keys.txt
-    rm -f /tmp/auth_keys.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "Authorized keys for $user:\n\n$keys" > "$tmpfile"
+    ui_textbox "Authorized Keys" "$tmpfile"
+    rm -f "$tmpfile"
 
     local line_num
     line_num=$(ui_inputbox "Remove Key" "Enter line number to remove:") || return
@@ -704,9 +713,11 @@ show_active_sessions() {
     info+="\n=== SSH Connections ===\n\n"
     info+="$(ss -tnp | grep ssh 2>&1)\n"
 
-    echo -e "$info" > /tmp/ssh_sessions.txt
-    ui_textbox "Active Sessions" /tmp/ssh_sessions.txt
-    rm -f /tmp/ssh_sessions.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "Active Sessions" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Kick SSH session
@@ -775,9 +786,11 @@ view_auth_log() {
             ;;
     esac
 
-    echo "$content" > /tmp/auth_log.txt
-    ui_textbox "Auth Log" /tmp/auth_log.txt
-    rm -f /tmp/auth_log.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo "$content" > "$tmpfile"
+    ui_textbox "Auth Log" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Add new user with SSH key
@@ -971,9 +984,9 @@ list_sudo_users() {
     local sudo_group
     sudo_group=$(getent group sudo 2>/dev/null | cut -d: -f4)
     if [[ -n "$sudo_group" ]]; then
-        echo "$sudo_group" | tr ',' '\n' | while read -r user; do
+        while read -r user; do
             [[ -n "$user" ]] && info+="  - $user\n"
-        done
+        done < <(echo "$sudo_group" | tr ',' '\n')
     else
         info+="  (none)\n"
     fi
@@ -997,9 +1010,11 @@ list_sudo_users() {
         info+="  (none)\n"
     fi
 
-    echo -e "$info" > /tmp/sudo_users.txt
-    ui_textbox "Sudo Users" /tmp/sudo_users.txt
-    rm -f /tmp/sudo_users.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "Sudo Users" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Main module function

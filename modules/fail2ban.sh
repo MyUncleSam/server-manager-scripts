@@ -103,9 +103,11 @@ show_status() {
     status=$(fail2ban-client status 2>&1)
     info+="$status\n"
 
-    echo -e "$info" > /tmp/fail2ban_status.txt
-    ui_textbox "Fail2ban Status" /tmp/fail2ban_status.txt
-    rm -f /tmp/fail2ban_status.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "Fail2ban Status" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Show jail status
@@ -137,9 +139,11 @@ show_jail_status() {
     local jail_status
     jail_status=$(fail2ban-client status "$selected" 2>&1)
 
-    echo -e "=== Jail: $selected ===\n\n$jail_status" > /tmp/jail_status.txt
-    ui_textbox "Jail Status: $selected" /tmp/jail_status.txt
-    rm -f /tmp/jail_status.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "=== Jail: $selected ===\n\n$jail_status" > "$tmpfile"
+    ui_textbox "Jail Status: $selected" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Create or update jail.local
@@ -240,10 +244,12 @@ configure_defaults() {
                 email=$(ui_inputbox "Destination Email" "Enter email for notifications\n(leave empty to disable):") || continue
 
                 if [[ -n "$email" ]]; then
+                    local escaped_email
+                    escaped_email=$(sed_escape "$email")
                     if grep -q "^destemail" "$JAIL_LOCAL"; then
-                        sed -i "s/^destemail = .*/destemail = $email/" "$JAIL_LOCAL"
+                        sed -i "s/^destemail = .*/destemail = ${escaped_email}/" "$JAIL_LOCAL"
                     elif grep -q "^#destemail" "$JAIL_LOCAL"; then
-                        sed -i "s/^#destemail = .*/destemail = $email/" "$JAIL_LOCAL"
+                        sed -i "s/^#destemail = .*/destemail = ${escaped_email}/" "$JAIL_LOCAL"
                     else
                         echo "destemail = $email" >> "$JAIL_LOCAL"
                     fi
@@ -544,9 +550,11 @@ show_banned() {
         info+="\n"
     done
 
-    echo -e "$info" > /tmp/banned_ips.txt
-    ui_textbox "Banned IPs" /tmp/banned_ips.txt
-    rm -f /tmp/banned_ips.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "Banned IPs" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Quick setup with common jails
@@ -665,9 +673,11 @@ view_log() {
 
     if [[ -f "$log_file" ]]; then
         # Show last 100 lines
-        tail -100 "$log_file" > /tmp/fail2ban_log.txt
-        ui_textbox "Fail2ban Log (last 100 lines)" /tmp/fail2ban_log.txt
-        rm -f /tmp/fail2ban_log.txt
+        local tmpfile
+        tmpfile=$(mktemp) || return 1
+        tail -100 "$log_file" > "$tmpfile"
+        ui_textbox "Fail2ban Log (last 100 lines)" "$tmpfile"
+        rm -f "$tmpfile"
     else
         ui_msgbox "Info" "Log file not found: $log_file"
     fi
@@ -689,6 +699,11 @@ whitelist_ip() {
 
     if [[ -z "$ip" ]]; then
         return
+    fi
+
+    if ! validate_ip "$ip"; then
+        ui_msgbox "Error" "Invalid IP address: $ip"
+        return 1
     fi
 
     # Add to ignoreip in jail.local
@@ -730,9 +745,11 @@ show_statistics() {
         info+="  Currently banned: $currently_banned\n\n"
     done
 
-    echo -e "$info" > /tmp/fail2ban_stats.txt
-    ui_textbox "Fail2ban Statistics" /tmp/fail2ban_stats.txt
-    rm -f /tmp/fail2ban_stats.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "Fail2ban Statistics" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Clear all bans

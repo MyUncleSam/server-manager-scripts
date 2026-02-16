@@ -53,10 +53,19 @@ install_crowdsec() {
     # Add repository with visible output
     ui_msgbox "Adding Repository" "Adding CrowdSec repository...\n\nThis may take a minute. You'll see the script output next."
 
-    if ! (curl -fsSL https://packagecloud.io/install/repositories/crowdsec/crowdsec/script.deb.sh | bash) 2>&1 | ui_progressbox "Adding CrowdSec Repository"; then
+    local install_script
+    install_script=$(mktemp) || return 1
+    if ! curl -fsSL https://packagecloud.io/install/repositories/crowdsec/crowdsec/script.deb.sh -o "$install_script" 2>/dev/null; then
+        rm -f "$install_script"
+        ui_msgbox "Error" "Failed to download CrowdSec repository script"
+        return 1
+    fi
+    if ! bash "$install_script" 2>&1 | ui_progressbox "Adding CrowdSec Repository"; then
+        rm -f "$install_script"
         ui_msgbox "Error" "Failed to add CrowdSec repository.\n\nPlease check your internet connection and try again."
         return 1
     fi
+    rm -f "$install_script"
 
     # Install package with progress
     ui_infobox "Installing" "Installing CrowdSec package..."
@@ -198,9 +207,11 @@ show_status() {
     hub_info=$(cscli hub list 2>/dev/null | grep -E "PARSERS|SCENARIOS|COLLECTIONS|POSTOVERFLOWS" | head -10)
     info+="$hub_info\n"
 
-    echo -e "$info" > /tmp/crowdsec_status.txt
-    ui_textbox "CrowdSec Status" /tmp/crowdsec_status.txt
-    rm -f /tmp/crowdsec_status.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "CrowdSec Status" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Show active decisions (bans)
@@ -222,9 +233,11 @@ show_decisions() {
     info+="=== Active Decisions ===\n\n"
     info+="$decisions\n"
 
-    echo -e "$info" > /tmp/crowdsec_decisions.txt
-    ui_textbox "Active Decisions" /tmp/crowdsec_decisions.txt
-    rm -f /tmp/crowdsec_decisions.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "Active Decisions" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Service control submenu
@@ -279,9 +292,11 @@ service_control() {
             status)
                 local status_output
                 status_output=$(systemctl status crowdsec 2>&1)
-                echo "$status_output" > /tmp/crowdsec_systemd_status.txt
-                ui_textbox "Service Status" /tmp/crowdsec_systemd_status.txt
-                rm -f /tmp/crowdsec_systemd_status.txt
+                local tmpfile
+                tmpfile=$(mktemp) || return 1
+                echo "$status_output" > "$tmpfile"
+                ui_textbox "Service Status" "$tmpfile"
+                rm -f "$tmpfile"
                 ;;
         esac
     done
@@ -304,22 +319,28 @@ view_logs() {
         crowdsec)
             local log_output
             log_output=$(journalctl -u crowdsec -n 100 --no-pager 2>&1)
-            echo "$log_output" > /tmp/crowdsec_journal.txt
-            ui_textbox "CrowdSec Log (last 100 lines)" /tmp/crowdsec_journal.txt
-            rm -f /tmp/crowdsec_journal.txt
+            local tmpfile
+            tmpfile=$(mktemp) || return 1
+            echo "$log_output" > "$tmpfile"
+            ui_textbox "CrowdSec Log (last 100 lines)" "$tmpfile"
+            rm -f "$tmpfile"
             ;;
         decisions)
             local decisions_log
             decisions_log=$(cscli decisions list -o raw 2>&1)
-            echo "$decisions_log" > /tmp/crowdsec_decisions_log.txt
-            ui_textbox "Decision Logs" /tmp/crowdsec_decisions_log.txt
-            rm -f /tmp/crowdsec_decisions_log.txt
+            local tmpfile
+            tmpfile=$(mktemp) || return 1
+            echo "$decisions_log" > "$tmpfile"
+            ui_textbox "Decision Logs" "$tmpfile"
+            rm -f "$tmpfile"
             ;;
         file)
             if [[ -f "$CROWDSEC_LOG" ]]; then
-                tail -100 "$CROWDSEC_LOG" > /tmp/crowdsec_file_log.txt
-                ui_textbox "CrowdSec Log File (last 100 lines)" /tmp/crowdsec_file_log.txt
-                rm -f /tmp/crowdsec_file_log.txt
+                local tmpfile
+                tmpfile=$(mktemp) || return 1
+                tail -100 "$CROWDSEC_LOG" > "$tmpfile"
+                ui_textbox "CrowdSec Log File (last 100 lines)" "$tmpfile"
+                rm -f "$tmpfile"
             else
                 ui_msgbox "Info" "Log file not found: $CROWDSEC_LOG"
             fi
@@ -478,9 +499,11 @@ manage_whitelist() {
                 if [[ -z "$whitelist" || $(echo "$whitelist" | wc -l) -le 1 ]]; then
                     ui_msgbox "Info" "No whitelisted IPs found"
                 else
-                    echo "$whitelist" > /tmp/crowdsec_whitelist.txt
-                    ui_textbox "Whitelisted IPs" /tmp/crowdsec_whitelist.txt
-                    rm -f /tmp/crowdsec_whitelist.txt
+                    local tmpfile
+                    tmpfile=$(mktemp) || return 1
+                    echo "$whitelist" > "$tmpfile"
+                    ui_textbox "Whitelisted IPs" "$tmpfile"
+                    rm -f "$tmpfile"
                 fi
                 ;;
             add)
@@ -540,9 +563,11 @@ show_scenarios() {
         return
     fi
 
-    echo "$scenarios" > /tmp/crowdsec_scenarios.txt
-    ui_textbox "Installed Scenarios" /tmp/crowdsec_scenarios.txt
-    rm -f /tmp/crowdsec_scenarios.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo "$scenarios" > "$tmpfile"
+    ui_textbox "Installed Scenarios" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Manage collections
@@ -569,9 +594,11 @@ manage_collections() {
                 if [[ -z "$collections" ]]; then
                     ui_msgbox "Info" "No collections found"
                 else
-                    echo "$collections" > /tmp/crowdsec_collections.txt
-                    ui_textbox "Installed Collections" /tmp/crowdsec_collections.txt
-                    rm -f /tmp/crowdsec_collections.txt
+                    local tmpfile
+                    tmpfile=$(mktemp) || return 1
+                    echo "$collections" > "$tmpfile"
+                    ui_textbox "Installed Collections" "$tmpfile"
+                    rm -f "$tmpfile"
                 fi
                 ;;
             install)
@@ -749,9 +776,11 @@ manage_bouncers() {
                 if [[ -z "$bouncers" || $(echo "$bouncers" | wc -l) -le 1 ]]; then
                     ui_msgbox "Info" "No bouncers registered"
                 else
-                    echo "$bouncers" > /tmp/crowdsec_bouncers.txt
-                    ui_textbox "Registered Bouncers" /tmp/crowdsec_bouncers.txt
-                    rm -f /tmp/crowdsec_bouncers.txt
+                    local tmpfile
+                    tmpfile=$(mktemp) || return 1
+                    echo "$bouncers" > "$tmpfile"
+                    ui_textbox "Registered Bouncers" "$tmpfile"
+                    rm -f "$tmpfile"
                 fi
                 ;;
             firewall)
@@ -855,9 +884,11 @@ console_menu() {
             capi-status)
                 local capi_status
                 capi_status=$(cscli capi status 2>&1)
-                echo "$capi_status" > /tmp/crowdsec_capi_status.txt
-                ui_textbox "Central API (CAPI) Status" /tmp/crowdsec_capi_status.txt
-                rm -f /tmp/crowdsec_capi_status.txt
+                local tmpfile
+                tmpfile=$(mktemp) || return 1
+                echo "$capi_status" > "$tmpfile"
+                ui_textbox "Central API (CAPI) Status" "$tmpfile"
+                rm -f "$tmpfile"
                 ;;
             capi-register)
                 if ! require_root; then
@@ -885,9 +916,11 @@ console_menu() {
             console-status)
                 local console_status
                 console_status=$(cscli console status 2>&1)
-                echo "$console_status" > /tmp/crowdsec_console_status.txt
-                ui_textbox "Console Enrollment Status" /tmp/crowdsec_console_status.txt
-                rm -f /tmp/crowdsec_console_status.txt
+                local tmpfile
+                tmpfile=$(mktemp) || return 1
+                echo "$console_status" > "$tmpfile"
+                ui_textbox "Console Enrollment Status" "$tmpfile"
+                rm -f "$tmpfile"
                 ;;
             console-enroll)
                 if ! require_root; then
@@ -939,9 +972,11 @@ manage_parsers() {
                 if [[ -z "$parsers" ]]; then
                     ui_msgbox "Info" "No parsers found"
                 else
-                    echo "$parsers" > /tmp/crowdsec_parsers.txt
-                    ui_textbox "Installed Parsers" /tmp/crowdsec_parsers.txt
-                    rm -f /tmp/crowdsec_parsers.txt
+                    local tmpfile
+                    tmpfile=$(mktemp) || return 1
+                    echo "$parsers" > "$tmpfile"
+                    ui_textbox "Installed Parsers" "$tmpfile"
+                    rm -f "$tmpfile"
                 fi
                 ;;
             install)
@@ -1019,9 +1054,11 @@ manage_postoverflows() {
                 if [[ -z "$postoverflows" ]]; then
                     ui_msgbox "Info" "No postoverflows found"
                 else
-                    echo "$postoverflows" > /tmp/crowdsec_postoverflows.txt
-                    ui_textbox "Installed Postoverflows" /tmp/crowdsec_postoverflows.txt
-                    rm -f /tmp/crowdsec_postoverflows.txt
+                    local tmpfile
+                    tmpfile=$(mktemp) || return 1
+                    echo "$postoverflows" > "$tmpfile"
+                    ui_textbox "Installed Postoverflows" "$tmpfile"
+                    rm -f "$tmpfile"
                 fi
                 ;;
             install)
@@ -1108,9 +1145,11 @@ manage_acquisition() {
                 test_output=$(crowdsec -t 2>&1)
                 local exit_code=$?
 
-                echo "$test_output" > /tmp/crowdsec_config_test.txt
-                ui_textbox "Configuration Test" /tmp/crowdsec_config_test.txt
-                rm -f /tmp/crowdsec_config_test.txt
+                local tmpfile
+                tmpfile=$(mktemp) || return 1
+                echo "$test_output" > "$tmpfile"
+                ui_textbox "Configuration Test" "$tmpfile"
+                rm -f "$tmpfile"
 
                 if [[ $exit_code -eq 0 ]]; then
                     if ui_yesno "Test Passed" "Configuration is valid!\n\nReload CrowdSec to apply changes?"; then
@@ -1219,9 +1258,11 @@ explain_decision() {
         info+="$alerts\n"
     fi
 
-    echo -e "$info" > /tmp/crowdsec_explain.txt
-    ui_textbox "Decision Explanation: $ip" /tmp/crowdsec_explain.txt
-    rm -f /tmp/crowdsec_explain.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "Decision Explanation: $ip" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Main module function

@@ -98,9 +98,11 @@ detect_virtualization() {
         info+="or the virtualization platform could not be identified.\n"
     fi
 
-    echo -e "$info" > /tmp/virt_detect.txt
-    ui_textbox "Virtualization Detection" /tmp/virt_detect.txt
-    rm -f /tmp/virt_detect.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "Virtualization Detection" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Show installation status
@@ -147,9 +149,11 @@ show_status() {
         info+="Xen Tools:         Not installed\n"
     fi
 
-    echo -e "$info" > /tmp/guest_status.txt
-    ui_textbox "Guest Agent Status" /tmp/guest_status.txt
-    rm -f /tmp/guest_status.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "Guest Agent Status" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Install VMware Tools

@@ -80,9 +80,11 @@ list_scripts() {
         info+="\nNo scripts found in $SCRIPTS_DIR\n"
     fi
 
-    echo -e "$info" > /tmp/custom_scripts_list.txt
-    ui_textbox "Custom Scripts" /tmp/custom_scripts_list.txt
-    rm -f /tmp/custom_scripts_list.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "Custom Scripts" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Install a script

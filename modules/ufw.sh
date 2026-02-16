@@ -63,9 +63,11 @@ show_status() {
     local status
     status=$(ufw status verbose 2>&1)
 
-    echo "$status" > /tmp/ufw_status.txt
-    ui_textbox "UFW Status" /tmp/ufw_status.txt
-    rm -f /tmp/ufw_status.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo "$status" > "$tmpfile"
+    ui_textbox "UFW Status" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Enable UFW
@@ -317,9 +319,11 @@ delete_rule() {
         return
     fi
 
-    echo "$rules" > /tmp/ufw_rules.txt
-    ui_textbox "Current Rules" /tmp/ufw_rules.txt
-    rm -f /tmp/ufw_rules.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo "$rules" > "$tmpfile"
+    ui_textbox "Current Rules" "$tmpfile"
+    rm -f "$tmpfile"
 
     local rule_num
     rule_num=$(ui_inputbox "Delete Rule" "Enter rule number to delete:") || return
@@ -471,9 +475,11 @@ show_numbered_rules() {
     local rules
     rules=$(ufw status numbered 2>&1)
 
-    echo "$rules" > /tmp/ufw_numbered.txt
-    ui_textbox "UFW Rules (Numbered)" /tmp/ufw_numbered.txt
-    rm -f /tmp/ufw_numbered.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo "$rules" > "$tmpfile"
+    ui_textbox "UFW Rules (Numbered)" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Set logging level

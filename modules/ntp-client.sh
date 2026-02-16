@@ -147,9 +147,11 @@ show_status() {
     service_status=$(systemctl status systemd-timesyncd --no-pager 2>&1 | head -20)
     info+="$service_status\n"
 
-    echo -e "$info" > /tmp/ntp_status.txt
-    ui_textbox "NTP Status" /tmp/ntp_status.txt
-    rm -f /tmp/ntp_status.txt
+    local tmpfile
+    tmpfile=$(mktemp) || return 1
+    echo -e "$info" > "$tmpfile"
+    ui_textbox "NTP Status" "$tmpfile"
+    rm -f "$tmpfile"
 }
 
 # Select country from region
@@ -315,10 +317,12 @@ configure_ntp_servers() {
     # Update configuration
     if [[ -f "$TIMESYNCD_CONF" ]]; then
         # Update existing NTP line or add it
+        local escaped_servers
+        escaped_servers=$(sed_escape "$servers")
         if grep -q "^NTP=" "$TIMESYNCD_CONF"; then
-            sed -i "s|^NTP=.*|NTP=$servers|" "$TIMESYNCD_CONF"
+            sed -i "s|^NTP=.*|NTP=${escaped_servers}|" "$TIMESYNCD_CONF"
         elif grep -q "^#NTP=" "$TIMESYNCD_CONF"; then
-            sed -i "s|^#NTP=.*|NTP=$servers|" "$TIMESYNCD_CONF"
+            sed -i "s|^#NTP=.*|NTP=${escaped_servers}|" "$TIMESYNCD_CONF"
         else
             echo "NTP=$servers" >> "$TIMESYNCD_CONF"
         fi
