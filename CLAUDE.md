@@ -292,8 +292,14 @@ download_file "url" "dest"   # Download file (wget/curl)
 
 ```bash
 validate_username "user"     # Validate username format
-validate_ip "192.168.1.1"    # Validate IP address
+validate_ip "192.168.1.1"    # Validate IP address (format + octet range 0-255)
 validate_port 8080           # Validate port number
+```
+
+### String Escaping
+
+```bash
+sed_escape "string"          # Escape string for use in sed replacement text
 ```
 
 ### Logging
@@ -384,6 +390,116 @@ module_main() {
         esac
     done
 }
+```
+
+## Security Practices
+
+These rules are **mandatory** for all modules. Do not introduce patterns that violate them.
+
+### 1. Never Use `eval` for Command Construction
+
+Build commands using bash arrays, not string concatenation with `eval`:
+
+```bash
+# WRONG - command injection risk
+local cmd="useradd -m -c \"$fullname\" $username"
+eval "$cmd"
+
+# CORRECT - use arrays or direct calls
+local -a cmd=(useradd -m -c "$fullname" "$username")
+"${cmd[@]}"
+```
+
+### 2. Always Use `mktemp` for Temporary Files
+
+Never write to predictable paths in `/tmp`. Use `mktemp` for files and `mktemp -d` for directories:
+
+```bash
+# WRONG - symlink attack vector
+echo "$info" > /tmp/status.txt
+ui_textbox "Status" /tmp/status.txt
+rm -f /tmp/status.txt
+
+# CORRECT - unpredictable path
+local tmpfile
+tmpfile=$(mktemp) || return 1
+echo "$info" > "$tmpfile"
+ui_textbox "Status" "$tmpfile"
+rm -f "$tmpfile"
+
+# CORRECT - temp directory for downloads
+local dl_dir
+dl_dir=$(mktemp -d) || return 1
+curl -fsSL "$url" -o "$dl_dir/archive.tar.gz"
+tar xzf "$dl_dir/archive.tar.gz" -C "$dl_dir"
+# ... use files ...
+rm -rf "$dl_dir"
+```
+
+### 3. Never Pipe Remote Scripts Directly to Shell
+
+Download scripts to a temp file first, then execute:
+
+```bash
+# WRONG - no inspection, partial execution on truncated download
+curl -fsSL https://example.com/install.sh | bash
+
+# CORRECT - download then execute
+local install_script
+install_script=$(mktemp) || return 1
+if ! curl -fsSL https://example.com/install.sh -o "$install_script" 2>/dev/null; then
+    rm -f "$install_script"
+    ui_msgbox "Error" "Failed to download installation script"
+    return 1
+fi
+bash "$install_script" 2>&1
+rm -f "$install_script"
+```
+
+### 4. Escape User Input in `sed` Replacements
+
+When user-provided values are used in `sed` replacement strings, use `sed_escape` to prevent injection via special characters (`/`, `&`, `\`):
+
+```bash
+# WRONG - user input with / or & breaks sed
+sed -i "s/^setting = .*/setting = $user_value/" "$config_file"
+
+# CORRECT - escape replacement text
+local escaped_value
+escaped_value=$(sed_escape "$user_value")
+sed -i "s/^setting = .*/setting = ${escaped_value}/" "$config_file"
+```
+
+**Exception:** Values from fixed menus (e.g., `ui_menu` with hardcoded tags like "small"/"big") don't need escaping since they can't contain special characters.
+
+### 5. Validate User Input at Boundaries
+
+Always validate user-provided IPs, ports, usernames, etc. before using them:
+
+```bash
+local ip
+ip=$(ui_inputbox "IP" "Enter IP address:") || return
+
+if ! validate_ip "$ip"; then
+    ui_msgbox "Error" "Invalid IP address: $ip"
+    return 1
+fi
+```
+
+### 6. Use Process Substitution Instead of Pipe-Subshell
+
+When a `while read` loop needs to modify variables in the calling scope, use process substitution instead of piping (piping creates a subshell where variable changes are lost):
+
+```bash
+# WRONG - $count changes are lost (subshell)
+echo "$data" | while read -r line; do
+    ((count++))
+done
+
+# CORRECT - process substitution stays in current scope
+while read -r line; do
+    ((count++))
+done < <(echo "$data")
 ```
 
 ## Example: Creating a Simple Module
