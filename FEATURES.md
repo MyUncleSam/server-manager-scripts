@@ -195,6 +195,9 @@ Install software not available via APT.
   - **fzf** - Fuzzy finder
   - **yq** - YAML processor
   - **starship** - Cross-shell prompt
+  - **gocryptfs** - Encrypted overlay filesystem
+  - **ctop** - Container top (Docker wrapper)
+  - **dtop** - Docker top (Docker wrapper)
 
 ## MOTD Manager
 

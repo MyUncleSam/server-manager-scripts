@@ -80,6 +80,12 @@ show_status() {
         info+="starship:      Not installed\n"
     fi
 
+    if is_installed gocryptfs; then
+        info+="gocryptfs:     Installed ($(gocryptfs --version 2>/dev/null | awk '{print $2}'))\n"
+    else
+        info+="gocryptfs:     Not installed\n"
+    fi
+
     if is_installed ctop; then
         info+="ctop:          Installed (Docker wrapper)\n"
     else
@@ -593,6 +599,62 @@ install_starship() {
     fi
 }
 
+# Install gocryptfs
+install_gocryptfs() {
+    if ! require_root; then
+        return 1
+    fi
+
+    if is_installed gocryptfs; then
+        local current_ver
+        current_ver=$(gocryptfs --version 2>/dev/null | awk '{print $2}')
+        if ! ui_yesno "Already Installed" "gocryptfs $current_ver is already installed.\n\nReinstall/Update?"; then
+            return 0
+        fi
+    fi
+
+    if ! has_internet; then
+        ui_msgbox "Error" "Internet connection required"
+        return 1
+    fi
+
+    ui_infobox "Installing" "Installing gocryptfs..."
+
+    # Get latest version
+    local latest_ver
+    latest_ver=$(curl -fsSL https://api.github.com/repos/rfjakob/gocryptfs/releases/latest | jq -r .tag_name | tr -d 'v')
+
+    if [[ -z "$latest_ver" ]]; then
+        ui_msgbox "Error" "Failed to get latest version"
+        return 1
+    fi
+
+    local arch
+    arch=$(uname -m)
+    if [[ "$arch" == "x86_64" ]]; then
+        arch="amd64"
+    elif [[ "$arch" == "aarch64" ]]; then
+        arch="arm64"
+    fi
+
+    local url="https://github.com/rfjakob/gocryptfs/releases/download/v${latest_ver}/gocryptfs_v${latest_ver}_linux-static_${arch}.tar.gz"
+
+    local dl_dir
+    dl_dir=$(mktemp -d) || return 1
+    if curl -fsSL "$url" -o "$dl_dir/gocryptfs.tar.gz"; then
+        tar xzf "$dl_dir/gocryptfs.tar.gz" -C "$dl_dir"
+        cp "$dl_dir/gocryptfs" /usr/local/bin/
+        chmod +x /usr/local/bin/gocryptfs
+        rm -rf "$dl_dir"
+        log_info "gocryptfs $latest_ver installed"
+        ui_msgbox "Success" "gocryptfs $latest_ver installed"
+    else
+        rm -rf "$dl_dir"
+        ui_msgbox "Error" "Failed to download gocryptfs"
+        return 1
+    fi
+}
+
 # Install ctop (container top - Docker wrapper)
 install_ctop() {
     if ! require_root; then
@@ -679,6 +741,7 @@ uninstall_software() {
     is_installed fzf && pkg_list+=("fzf" "Fuzzy finder" "off")
     is_installed yq && pkg_list+=("yq" "YAML processor" "off")
     is_installed starship && pkg_list+=("starship" "Cross-shell prompt" "off")
+    is_installed gocryptfs && pkg_list+=("gocryptfs" "Encrypted overlay filesystem" "off")
     is_installed ctop && pkg_list+=("ctop" "Container top (Docker)" "off")
     is_installed dtop && pkg_list+=("dtop" "Docker top (Docker)" "off")
 
@@ -706,6 +769,7 @@ uninstall_software() {
             fzf)        rm -f /usr/local/bin/fzf ;;
             yq)         rm -f /usr/local/bin/yq ;;
             starship)   rm -f /usr/local/bin/starship ;;
+            gocryptfs)  rm -f /usr/local/bin/gocryptfs ;;
             ctop)       rm -f /usr/local/bin/ctop ;;
             dtop)       rm -f /usr/local/bin/dtop ;;
         esac
@@ -737,6 +801,7 @@ update_all() {
     is_installed fzf && to_update+="fzf "
     is_installed yq && to_update+="yq "
     is_installed starship && to_update+="starship "
+    is_installed gocryptfs && to_update+="gocryptfs "
 
     if [[ -z "$to_update" ]]; then
         ui_msgbox "Info" "No software installed to update"
@@ -807,6 +872,13 @@ update_all() {
             starship)
                 local install_script=$(mktemp) && curl -fsSL https://starship.rs/install.sh -o "$install_script" 2>/dev/null && sh "$install_script" -- -y &>/dev/null; rm -f "$install_script"
                 ;;
+            gocryptfs)
+                local ver=$(curl -fsSL https://api.github.com/repos/rfjakob/gocryptfs/releases/latest | jq -r .tag_name | tr -d 'v')
+                local arch=$(uname -m); [[ "$arch" == "x86_64" ]] && arch="amd64" || arch="arm64"
+                local dl_dir=$(mktemp -d) || return 1
+                curl -fsSL "https://github.com/rfjakob/gocryptfs/releases/download/v${ver}/gocryptfs_v${ver}_linux-static_${arch}.tar.gz" -o "$dl_dir/gocryptfs.tar.gz"
+                tar xzf "$dl_dir/gocryptfs.tar.gz" -C "$dl_dir" && cp "$dl_dir/gocryptfs" /usr/local/bin/ && chmod +x /usr/local/bin/gocryptfs && rm -rf "$dl_dir"
+                ;;
         esac
         log_info "Updated: $pkg"
     done
@@ -853,6 +925,9 @@ install_multiple() {
     if ! is_installed starship; then
         pkg_list+=("starship" "Cross-shell prompt" "off")
     fi
+    if ! is_installed gocryptfs; then
+        pkg_list+=("gocryptfs" "Encrypted overlay filesystem" "off")
+    fi
     if ! is_installed ctop; then
         pkg_list+=("ctop" "Container top (Docker wrapper)" "off")
     fi
@@ -886,6 +961,7 @@ install_multiple() {
             fzf)            install_fzf ;;
             yq)             install_yq ;;
             starship)       install_starship ;;
+            gocryptfs)      install_gocryptfs ;;
             ctop)           install_ctop ;;
             dtop)           install_dtop ;;
         esac
