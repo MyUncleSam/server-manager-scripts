@@ -20,16 +20,22 @@ See [FEATURES.md](FEATURES.md) for a complete list of modules and features.
 
 ## Installation
 
+### Quick Install (recommended)
+
+Install with a single command:
+
 ```bash
-# Clone the repository
-git clone https://github.com/MyUncleSam/server-manager-scripts.git
-cd server-manager-scripts
+curl -fsSL https://raw.githubusercontent.com/MyUncleSam/server-manager-scripts/master/install.sh | sudo bash
+```
 
-# Make executable
-chmod +x server-manager.sh
+This installs dependencies, clones the repo to `/opt/server-manager`, and registers the `server-manager` command globally. Re-running the command will update an existing installation.
 
-# Run
-sudo ./server-manager.sh
+### Manual Install
+
+```bash
+git clone https://github.com/MyUncleSam/server-manager-scripts.git /opt/server-manager
+chmod +x /opt/server-manager/server-manager.sh
+sudo /opt/server-manager/server-manager.sh
 ```
 
 ## Usage
@@ -37,7 +43,7 @@ sudo ./server-manager.sh
 Run the server manager with root privileges:
 
 ```bash
-sudo ./server-manager.sh
+sudo server-manager
 ```
 
 ### Disabling Auto-Update
