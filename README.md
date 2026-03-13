@@ -46,23 +46,25 @@ Run the server manager with root privileges:
 sudo server-manager
 ```
 
-### Disabling Auto-Update
+### Auto-Update
 
 The server manager automatically checks for updates via `git pull` on startup. This only happens when:
 - Git is installed
 - The repository is on the `master` or `main` branch
 - Network is available (skips gracefully if not)
 
-To disable auto-updates, create a `DISABLE_AUTO_UPDATE` file in the project directory:
+To toggle auto-updates on or off:
 
 ```bash
-touch /path/to/server-manager/DISABLE_AUTO_UPDATE
+sudo server-manager --switch-auto-update
 ```
 
-To re-enable, simply remove the file:
+This switches the current state — if auto-update is enabled it will be disabled, and vice versa. The current state is printed after each toggle.
+
+To manually update without launching the manager:
 
 ```bash
-rm /path/to/server-manager/DISABLE_AUTO_UPDATE
+sudo server-manager --update
 ```
 
 ### Navigation

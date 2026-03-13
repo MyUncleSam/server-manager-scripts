@@ -13,6 +13,51 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 CORE_SCRIPT="${SCRIPT_DIR}/server-manager-core.sh"
+DISABLE_FILE="${SCRIPT_DIR}/DISABLE_AUTO_UPDATE"
+
+# Toggle auto-update on/off
+switch_auto_update() {
+    if [[ -f "$DISABLE_FILE" ]]; then
+        rm -f "$DISABLE_FILE"
+        echo "Auto-update has been enabled."
+    else
+        touch "$DISABLE_FILE"
+        echo "Auto-update has been disabled."
+    fi
+    exit 0
+}
+
+# Update only (do not launch the manager)
+update_only() {
+    if ! command -v git &>/dev/null; then
+        echo "Error: git is not installed."
+        exit 1
+    fi
+
+    if ! git -C "$SCRIPT_DIR" rev-parse --is-inside-work-tree &>/dev/null; then
+        echo "Error: not a git repository."
+        exit 1
+    fi
+
+    echo "Updating server manager..."
+    if git -C "$SCRIPT_DIR" pull --ff-only; then
+        echo "Update complete."
+    else
+        echo "Update failed."
+        exit 1
+    fi
+    exit 0
+}
+
+# Handle command-line arguments
+case "${1:-}" in
+    --switch-auto-update)
+        switch_auto_update
+        ;;
+    --update)
+        update_only
+        ;;
+esac
 
 # Auto-update check
 auto_update() {
