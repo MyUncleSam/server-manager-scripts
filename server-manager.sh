@@ -49,8 +49,27 @@ update_only() {
     exit 0
 }
 
+# Show help
+show_help() {
+    echo "Ubuntu Server Manager"
+    echo ""
+    echo "Usage: server-manager [OPTION]"
+    echo ""
+    echo "Options:"
+    echo "  --help                 Show this help message"
+    echo "  --update               Update to the latest version without launching"
+    echo "  --switch-auto-update   Toggle auto-update on startup on/off"
+    echo ""
+    echo "Without options, the server manager launches normally"
+    echo "(with auto-update check if enabled)."
+    exit 0
+}
+
 # Handle command-line arguments
 case "${1:-}" in
+    --help|-h)
+        show_help
+        ;;
     --switch-auto-update)
         switch_auto_update
         ;;
