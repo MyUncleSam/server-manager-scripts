@@ -15,7 +15,8 @@ This ensures the documentation stays in sync with the actual codebase.
 
 ```
 ubuntu-scripts/
-├── server-manager.sh      # Main entry point
+├── server-manager.sh      # Entry point (auto-update + launch)
+├── server-manager-core.sh # Main server manager
 ├── lib/
 │   ├── ui.sh              # Dialog-based UI helper functions
 │   └── common.sh          # Common utility functions

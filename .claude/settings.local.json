@@ -5,7 +5,9 @@
       "Bash(command -v:*)",
       "Bash(bash:*)",
       "Bash(echo:*)",
-      "Bash(tty:*)"
+      "Bash(tty:*)",
+      "Bash(git mv:*)",
+      "Bash(ls -la /opt/claude/server-manager/server-manager*.sh)"
     ],
     "deny": [],
     "ask": []

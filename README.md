@@ -4,6 +4,7 @@ A modular, dialog-based TUI (Text User Interface) tool for managing Ubuntu serve
 
 ## Features
 
+- **Auto-update** - Automatically pulls latest changes on startup (when installed via git)
 - Modular architecture - easily extensible
 - Dialog-based interface using whiptail
 - Works over SSH (non-interactive sessions)
@@ -39,6 +40,27 @@ Run the server manager with root privileges:
 sudo ./server-manager.sh
 ```
 
+### Disabling Auto-Update
+
+The server manager automatically checks for updates via `git pull` on startup. This only happens when:
+- Git is installed
+- The repository is on the `master` or `main` branch
+- Network is available (skips gracefully if not)
+
+To disable auto-updates, create a `DISABLE_AUTO_UPDATE` file in the project directory:
+
+```bash
+touch /path/to/server-manager/DISABLE_AUTO_UPDATE
+```
+
+To re-enable, simply remove the file:
+
+```bash
+rm /path/to/server-manager/DISABLE_AUTO_UPDATE
+```
+
+### Navigation
+
 Navigate using:
 - Arrow keys to move
 - Enter to select
@@ -50,7 +72,8 @@ Navigate using:
 
 ```
 ubuntu-scripts/
-├── server-manager.sh      # Main entry point
+├── server-manager.sh      # Entry point (auto-update + launch)
+├── server-manager-core.sh # Main server manager
 ├── lib/
 │   ├── ui.sh              # Dialog-based UI helper functions
 │   └── common.sh          # Common utility functions
