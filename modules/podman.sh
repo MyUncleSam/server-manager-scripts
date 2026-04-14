@@ -204,19 +204,39 @@ Continue installing podman-docker anyway?"; then
     log_info "Podman $version installed"
 
     # Enable rootful socket?
-    if ui_yesno "Rootful socket" \
+    if ui_yesno "Rootful socket (system-wide)" \
         "Enable the system-wide podman.socket?\n\n\
-This exposes a Docker-compatible API at /run/podman/podman.sock for tools\n\
-that expect a docker daemon socket (root). Optional — leave disabled if you only use rootless."; then
+WHAT IT DOES:\n\
+  Exposes a Docker-compatible REST API at /run/podman/podman.sock (root-owned).\n\
+  Tools like Portainer, Dockge, or docker-compose pointed at DOCKER_HOST can use it.\n\n\
+WHEN TO ENABLE:\n\
+  • You want to run containers as root, like a classic Docker setup.\n\
+  • You need a system-wide socket for management UIs.\n\n\
+WHEN TO LEAVE DISABLED:\n\
+  • You only want rootless containers (each user gets their own user socket instead).\n\n\
+You can toggle this later under 'service'."; then
         systemctl enable --now podman.socket
         log_info "Enabled rootful podman.socket"
     fi
 
     # Enable auto-update timer?
-    if ui_yesno "Auto-update timer" \
-        "Enable podman-auto-update.timer?\n\n\
-It runs daily and pulls newer images for containers labeled\n\
-io.containers.autoupdate=registry, then restarts their systemd units."; then
+    if ui_yesno "Auto-update timer (system-wide)" \
+        "Enable podman-auto-update.timer (rootful)?\n\n\
+WHAT IT DOES:\n\
+  Runs 'podman auto-update' once a day. For every container labeled\n\
+  io.containers.autoupdate=registry it pulls the newest image from the\n\
+  registry and, if the digest changed, restarts the container's systemd\n\
+  unit. Containers without that label are IGNORED.\n\n\
+OPT-IN IS PER CONTAINER:\n\
+  • Quadlet units: add   Label=io.containers.autoupdate=registry\n\
+                  and   AutoUpdate=registry    under [Container]\n\
+  • podman run:   add   --label io.containers.autoupdate=registry\n\
+  • To pin a container, use AutoUpdate=local (or omit the label).\n\n\
+ROOTLESS NOTE:\n\
+  This enables only the SYSTEM timer. For rootless users each user must\n\
+  run:  systemctl --user enable --now podman-auto-update.timer\n\n\
+The built-in quadlet templates (caddy, homepage) are already labeled\n\
+for auto-update."; then
         systemctl enable --now podman-auto-update.timer
         log_info "Enabled podman-auto-update.timer"
     fi
@@ -802,7 +822,18 @@ deploy_compose() {
     fi
 
     local selected
-    selected=$(ui_checklist "Deploy Compose Stacks" "Select stacks to deploy to $PODMAN_STACKS_DIR (using $compose_impl):" "${containers_list[@]}") || return
+    selected=$(ui_checklist "Deploy Compose Stacks" \
+"Select stacks to deploy to $PODMAN_STACKS_DIR (using $compose_impl).\n\n\
+The compose file is copied into <target>/compose.yml and brought up\n\
+with 'up -d'. To manage later:\n\
+   cd $PODMAN_STACKS_DIR/<name>\n\
+   podman compose {down|logs|pull|up -d}\n\n\
+Compose stacks do NOT participate in podman auto-update by default —\n\
+auto-update only acts on containers managed by systemd units. If you\n\
+want auto-updates, either use the quadlet deploy option, or add\n\
+'labels: [io.containers.autoupdate=registry]' to the service AND\n\
+generate a systemd unit for it." \
+        "${containers_list[@]}") || return
 
     [[ -z "$selected" ]] && return
 
@@ -965,7 +996,17 @@ deploy_quadlet() {
     fi
 
     local selected
-    selected=$(ui_checklist "Deploy Quadlets" "Select quadlet units to deploy to:\n$target_dir" "${units_list[@]}") || return
+    selected=$(ui_checklist "Deploy Quadlets" \
+"Select quadlet units to deploy to:\n$target_dir\n\n\
+Quadlets are podman-native systemd units. The quadlet generator reads\n\
+these files and creates real *.service units on the fly. To stop a unit\n\
+use 'systemctl stop <name>.service'; to remove it, delete the file and\n\
+run daemon-reload.\n\n\
+NOTE: the shipped templates include AutoUpdate=registry and the\n\
+io.containers.autoupdate=registry label, so if the auto-update timer\n\
+is enabled they will be updated daily. Remove those two lines to pin\n\
+a unit to a specific image." \
+        "${units_list[@]}") || return
 
     [[ -z "$selected" ]] && return
 
@@ -1034,16 +1075,108 @@ manage_autoupdate() {
 
     local choice
     choice=$(ui_menu "Auto-update (current: $state)" "Select action:" \
-        "enable"   "Enable & start podman-auto-update.timer" \
-        "disable"  "Disable & stop podman-auto-update.timer" \
-        "status"   "Show timer status and next run" \
-        "run-now"  "Trigger podman auto-update now") || return
+        "info"       "How auto-update works & how to opt containers in/out" \
+        "enable"     "Enable & start podman-auto-update.timer" \
+        "disable"    "Disable & stop podman-auto-update.timer" \
+        "status"     "Show timer status and next run" \
+        "list"       "List containers currently opted in to auto-update" \
+        "run-now"    "Trigger podman auto-update now (dry-run first)") || return
 
     case "$choice" in
+        info)
+            local tmpfile
+            tmpfile=$(mktemp) || return 1
+            cat > "$tmpfile" <<'EOF'
+=== How podman auto-update works ===
+
+The podman-auto-update.timer runs once a day (by default). It asks podman
+to look at every container that has the label:
+
+    io.containers.autoupdate=<policy>
+
+...and then acts based on the policy:
+
+  registry   Pull the image tag from the registry. If the digest changed,
+             restart the container's systemd unit with the new image.
+             (Most common choice — use this for rolling updates.)
+
+  local      Only restart the container if a matching newer image is
+             already present locally (e.g. built by buildah). Will NOT
+             pull from a registry. Use this to "pin" a container to
+             images you control.
+
+  image      (Quadlets only) Update when the referenced .image unit
+             pulls a new image.
+
+Containers WITHOUT the label are skipped entirely — they will never be
+touched by auto-update.
+
+=== How to opt a container IN ===
+
+1) Quadlet unit (/etc/containers/systemd/*.container or
+   ~/.config/containers/systemd/*.container):
+
+     [Container]
+     Image=ghcr.io/example/app:latest
+     AutoUpdate=registry
+     Label=io.containers.autoupdate=registry
+
+   (The shipped caddy.container and homepage.container templates
+    already have these lines.)
+
+2) podman run:
+
+     podman run -d --name myapp \
+       --label io.containers.autoupdate=registry \
+       ghcr.io/example/app:latest
+
+3) docker-compose / podman-compose YAML:
+
+     services:
+       myapp:
+         image: ghcr.io/example/app:latest
+         labels:
+           io.containers.autoupdate: registry
+
+   NOTE: compose containers are only auto-updated if they are also
+   managed by a systemd unit (podman generate systemd, or a quadlet).
+   Plain compose-managed containers restart via compose, not systemd,
+   so the auto-update tool cannot safely restart them.
+
+=== How to opt a container OUT ===
+
+  • Remove (or never add) the io.containers.autoupdate label.
+  • Or set it to 'local' to prevent pulling from a registry.
+
+Changes take effect at the next timer run, or run 'podman auto-update'
+manually from this menu.
+
+=== Rootful vs rootless ===
+
+  • This menu manages the system-wide timer (root containers only).
+  • Rootless users need their own timer:
+        systemctl --user enable --now podman-auto-update.timer
+    and rootless auto-update will only touch containers owned by
+    that user.
+
+=== Useful commands ===
+
+  podman auto-update --dry-run    # Show what WOULD update, no changes
+  podman auto-update              # Apply updates now
+  systemctl list-timers podman-auto-update.timer
+EOF
+            ui_textbox "Auto-update info" "$tmpfile"
+            rm -f "$tmpfile"
+            ;;
         enable)
             systemctl enable --now podman-auto-update.timer
             log_info "Enabled podman-auto-update.timer"
-            ui_msgbox "Auto-update" "Timer enabled and started."
+            ui_msgbox "Auto-update" \
+"System timer enabled and started.\n\n\
+Remember: only containers labeled\n\
+  io.containers.autoupdate=registry (or =local)\n\
+will be considered. Unlabeled containers are skipped.\n\n\
+Use 'info' for full details, or 'list' to see what is currently opted in."
             ;;
         disable)
             systemctl disable --now podman-auto-update.timer
@@ -1061,11 +1194,33 @@ manage_autoupdate() {
             ui_textbox "Auto-update Timer" "$tmpfile"
             rm -f "$tmpfile"
             ;;
+        list)
+            local info
+            info="=== Containers opted in to auto-update ===\n\n"
+            info+="$(podman ps -a --filter 'label=io.containers.autoupdate' \
+                --format 'table {{.Names}}\t{{.Image}}\t{{.Labels}}' 2>&1)\n\n"
+            info+="Empty list = no rootful container has the label yet.\n"
+            info+="Rootless containers are NOT listed here (check per user)."
+            local tmpfile
+            tmpfile=$(mktemp) || return 1
+            echo -e "$info" > "$tmpfile"
+            ui_textbox "Auto-update candidates" "$tmpfile"
+            rm -f "$tmpfile"
+            ;;
         run-now)
-            local output
-            output=$(podman auto-update 2>&1)
-            ui_msgbox "Auto-update run" "$output"
-            log_info "Triggered podman auto-update manually"
+            if ! ui_yesno "Auto-update — dry run first?" \
+"Show a DRY RUN first (no changes) so you can review what would happen?\n\n\
+Pick 'Yes' for dry-run only, 'No' to apply updates immediately."; then
+                local output
+                output=$(podman auto-update 2>&1)
+                log_info "Triggered podman auto-update manually"
+                ui_msgbox "Auto-update run" "$output"
+            else
+                local output
+                output=$(podman auto-update --dry-run 2>&1)
+                ui_msgbox "Auto-update (dry-run)" "$output\n\n\
+Re-run this menu item and choose 'No' to apply the updates."
+            fi
             ;;
     esac
 }
