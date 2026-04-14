@@ -50,10 +50,17 @@ run_as_user() {
         "$@"
 }
 
-# Detect which compose implementation to use: "native" (podman compose) or "python" (podman-compose)
+# Detect compose implementation.
+#   "wrapper" = `podman compose` subcommand works (an external provider
+#               like docker-compose or podman-compose is on PATH)
+#   "python"  = only standalone `podman-compose` (python) is available
+#   ""        = no compose tooling installed
+# Note: `podman compose` is NOT a native implementation — it dispatches to
+# an external provider. podman-compose (the python package) is the most
+# common provider on Ubuntu.
 detect_compose_impl() {
     if podman compose version &>/dev/null; then
-        echo "native"
+        echo "wrapper"
     elif command_exists podman-compose; then
         echo "python"
     else
@@ -93,9 +100,9 @@ podman_status() {
     local compose_impl
     compose_impl=$(detect_compose_impl)
     case "$compose_impl" in
-        native) info+="Compose:      podman compose (native)\n" ;;
-        python) info+="Compose:      podman-compose (python)\n" ;;
-        *)      info+="Compose:      not installed\n" ;;
+        wrapper) info+="Compose:      podman compose (wrapper; external provider found)\n" ;;
+        python)  info+="Compose:      podman-compose (python)\n" ;;
+        *)       info+="Compose:      not installed (install podman-compose)\n" ;;
     esac
 
     # Companion tools
@@ -790,7 +797,13 @@ deploy_compose() {
     local compose_impl
     compose_impl=$(detect_compose_impl)
     if [[ -z "$compose_impl" ]]; then
-        ui_msgbox "Error" "No compose implementation found.\n\nInstall 'podman-compose' or upgrade to Podman 4.4+ with native compose support."
+        ui_msgbox "Error" \
+"No compose implementation found.\n\n\
+Podman does not ship a native compose engine — the 'podman compose'\n\
+subcommand is a wrapper that requires an external provider.\n\n\
+Install one via the podman 'install' menu:\n\
+  • podman-compose  (recommended — pure python, no docker)\n\
+  • or the docker-compose plugin"
         return 1
     fi
 
@@ -843,7 +856,7 @@ generate a systemd unit for it." \
         confirm_msg+="  - $name → $PODMAN_STACKS_DIR/$name\n"
     done
     confirm_msg+="\nEach will be started with: "
-    if [[ "$compose_impl" == "native" ]]; then
+    if [[ "$compose_impl" == "wrapper" ]]; then
         confirm_msg+="podman compose up -d"
     else
         confirm_msg+="podman-compose up -d"
@@ -876,7 +889,7 @@ generate a systemd unit for it." \
         fi
 
         local output exit_code
-        if [[ "$compose_impl" == "native" ]]; then
+        if [[ "$compose_impl" == "wrapper" ]]; then
             output=$(cd "$target_dir" && podman compose up -d 2>&1)
         else
             output=$(cd "$target_dir" && podman-compose up -d 2>&1)
