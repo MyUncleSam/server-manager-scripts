@@ -95,6 +95,7 @@ ubuntu-scripts/
 │   ├── motd.sh
 │   ├── network.sh
 │   ├── ntp-client.sh
+│   ├── podman.sh
 │   ├── software.sh
 │   ├── ssh.sh
 │   ├── system-info.sh
@@ -106,7 +107,9 @@ ubuntu-scripts/
 │   └── vm-guest.sh
 ├── modules-files/         # Module data files
 │   ├── cron/              # Pre-configured cron jobs
-│   └── custom-scripts/    # Custom utility scripts
+│   ├── custom-scripts/    # Custom utility scripts
+│   ├── docker/            # Docker compose templates
+│   └── podman/            # Podman compose + quadlet templates
 ├── logs/                  # Log files (gitignored)
 ├── CLAUDE.md              # AI assistant instructions
 ├── FEATURES.md            # Detailed feature list

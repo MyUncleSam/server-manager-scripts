@@ -112,6 +112,41 @@ Install and manage Docker CE.
 - **Clean up unused data** - Prune containers, images, volumes, networks
 - **Manage Docker service** - Start, stop, restart, enable/disable
 
+## Podman
+
+Install and manage Podman — a daemonless, rootless-capable container engine. Docker-compatible CLI with first-class systemd integration via Quadlets.
+
+- **Show Podman status** - Version, rootful socket state, auto-update timer state, compose implementation, companion tool presence, rootful container/image counts, rootless users with linger enabled
+- **Install Podman** - apt-based install with optional components via checklist:
+  - `podman-compose` - Docker Compose compatible CLI (python)
+  - `buildah` - Daemonless OCI image builder
+  - `skopeo` - Copy/inspect images between registries
+  - `podman-docker` - Install `docker` CLI shim (with conflict warning if Docker is installed)
+  - `cockpit-podman` - Web UI for podman via Cockpit
+  - Always installs rootless prerequisites: `uidmap`, `slirp4netns`, `fuse-overlayfs`, `containers-storage`
+  - Optional: enable rootful `podman.socket` (Docker-compatible API)
+  - Optional: enable `podman-auto-update.timer`
+- **Uninstall Podman** - Purge packages, disable sockets/timers, optional data removal
+- **Configure rootless Podman (per user)**:
+  - **Enable for a user** - Allocates `/etc/subuid` and `/etc/subgid` range (100000-165535), enables user linger, starts user `podman.socket`, runs `podman system migrate`, prints `DOCKER_HOST` hint
+  - **Disable for a user** - Stops user socket, disables linger
+  - **Show subuid/subgid** - View current allocations
+- **Deploy compose stacks** - Selects `podman compose` (native, 4.4+) or falls back to `podman-compose`; deploys YML templates to `/opt/podman/<name>/compose.yml`:
+  - **bentopdf** - PDF generation service (port 8080)
+  - **homepage** - Self-hosted service dashboard (port 3000)
+- **Deploy systemd Quadlets** - Rootful (`/etc/containers/systemd/`) or rootless (`~/.config/containers/systemd/`); triggers `daemon-reload`; offers to start units:
+  - **caddy.container** - Caddy reverse proxy with auto-HTTPS
+  - **homepage.container** - Homepage dashboard as a systemd unit
+- **List containers** - `podman ps -a`
+- **List images** - `podman images`
+- **Manage volumes** - List and remove rootful volumes
+- **Manage networks** - List, add (IPv4 + optional IPv6), remove (netavark)
+- **View logs** - `podman.socket` journal logs or per-container `podman logs`
+- **Clean up unused data** - Prune containers, images, volumes, networks, or all
+- **Manage podman.socket** - Start, stop, restart, enable/disable (rootful)
+- **Auto-update timer** - Enable/disable `podman-auto-update.timer`, show next-run status, trigger manual `podman auto-update`
+- **Edit search registries** - Configure `unqualified-search-registries` in `/etc/containers/registries.conf` (with hostname validation, `sed_escape`, and automatic `.bak` backup)
+
 ## Fail2ban
 
 Install and configure fail2ban intrusion prevention.

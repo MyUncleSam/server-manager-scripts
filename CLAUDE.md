@@ -29,6 +29,7 @@ ubuntu-scripts/
 │   ├── motd.sh            # MOTD banner configuration
 │   ├── network.sh         # Network interface management
 │   ├── ntp-client.sh      # NTP time synchronization
+│   ├── podman.sh          # Podman (daemonless/rootless containers)
 │   ├── software.sh        # Non-APT software installation
 │   ├── ssh.sh             # SSH server configuration
 │   ├── system-info.sh     # System information
@@ -38,9 +39,12 @@ ubuntu-scripts/
 │   ├── user.sh            # User management
 │   └── vm-guest.sh        # VM guest agent installation
 ├── modules-files/         # Module data files (each module uses its own subfolder)
-│   └── custom-scripts/    # Custom scripts for installation
-│       ├── dc             # Docker compose shortcut script
-│       └── dc.description # Description for dc script
+│   ├── custom-scripts/    # Custom scripts for installation
+│   │   ├── dc             # Docker compose shortcut script
+│   │   └── dc.description # Description for dc script
+│   └── podman/            # Podman templates
+│       ├── compose/       # podman-compose YML templates
+│       └── quadlets/      # Systemd quadlet unit templates
 └── CLAUDE.md              # This file
 ```
 

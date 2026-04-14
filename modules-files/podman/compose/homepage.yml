@@ -1,0 +1,15 @@
+services:
+  homepage:
+    container_name: homepage
+    image: ghcr.io/gethomepage/homepage:latest
+    environment:
+      TZ: Europe/Berlin
+      PUID: 1000
+      PGID: 1000
+      HOMEPAGE_ALLOWED_HOSTS: "*"
+    ports:
+      - 127.0.0.1:3000:3000
+    volumes:
+      - ./config:/app/config
+      - ./icons:/app/public/icons
+    restart: unless-stopped
