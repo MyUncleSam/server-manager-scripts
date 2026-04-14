@@ -1,0 +1,22 @@
+[Unit]
+Description=Homepage dashboard (podman quadlet)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+ContainerName=homepage
+Image=ghcr.io/gethomepage/homepage:latest
+PublishPort=127.0.0.1:3000:3000
+Environment=TZ=Europe/Berlin
+Environment=HOMEPAGE_ALLOWED_HOSTS=*
+Volume=homepage-config.volume:/app/config
+Volume=homepage-icons.volume:/app/public/icons
+AutoUpdate=registry
+Label=io.containers.autoupdate=registry
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target

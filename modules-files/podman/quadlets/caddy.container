@@ -1,0 +1,22 @@
+[Unit]
+Description=Caddy reverse proxy (podman quadlet)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+ContainerName=caddy
+Image=docker.io/library/caddy:latest
+PublishPort=127.0.0.1:8080:80
+PublishPort=127.0.0.1:8443:443
+Volume=caddy-data.volume:/data
+Volume=caddy-config.volume:/config
+Volume=%h/caddy/Caddyfile:/etc/caddy/Caddyfile:ro,Z
+AutoUpdate=registry
+Label=io.containers.autoupdate=registry
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target
