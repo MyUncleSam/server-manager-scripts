@@ -87,13 +87,13 @@ show_status() {
     fi
 
     if is_installed ctop; then
-        info+="ctop:          Installed (Docker wrapper)\n"
+        info+="ctop:          Installed (Docker/Podman wrapper)\n"
     else
         info+="ctop:          Not installed\n"
     fi
 
     if is_installed dtop; then
-        info+="dtop:          Installed (Docker wrapper)\n"
+        info+="dtop:          Installed (Docker/Podman wrapper)\n"
     else
         info+="dtop:          Not installed\n"
     fi
@@ -655,7 +655,84 @@ install_gocryptfs() {
     fi
 }
 
-# Install ctop (container top - Docker wrapper)
+# Ensure a container runtime (Docker or Podman) is available for wrapper-style
+# tools like ctop/dtop. Returns 0 if docker OR podman is installed, otherwise
+# shows an error and returns 1. When only podman is present, offer to enable
+# podman.socket so the Docker-compatible API is reachable at runtime.
+ensure_container_runtime() {
+    local tool="$1"
+
+    if command_exists docker; then
+        return 0
+    fi
+
+    if command_exists podman; then
+        if ! systemctl is-active --quiet podman.socket 2>/dev/null; then
+            if ui_yesno "Enable Podman Socket" "$tool needs a Docker-compatible API socket.\n\nPodman is installed but podman.socket is not active.\n\nEnable it now (systemctl enable --now podman.socket)?"; then
+                if ! systemctl enable --now podman.socket 2>&1; then
+                    ui_msgbox "Error" "Failed to enable podman.socket"
+                    return 1
+                fi
+                log_info "Enabled podman.socket for $tool"
+            else
+                ui_msgbox "Warning" "$tool will not work until podman.socket is enabled."
+            fi
+        fi
+        return 0
+    fi
+
+    ui_msgbox "Error" "Docker or Podman is required for $tool.\nPlease install Docker or Podman first."
+    return 1
+}
+
+# Write a container-runtime wrapper that picks docker or podman at runtime.
+# Args: wrapper_path, container_name, image
+write_container_wrapper() {
+    local path="$1"
+    local name="$2"
+    local image="$3"
+
+    cat > "$path" << EOF
+#!/bin/bash
+# $name - container-runtime wrapper (auto-detects docker or podman)
+
+find_sock() {
+    local runtime="\$1"
+    if [[ "\$runtime" == "docker" ]]; then
+        [[ -S /var/run/docker.sock ]] && { echo /var/run/docker.sock; return 0; }
+        return 1
+    fi
+    local uid
+    uid=\$(id -u)
+    if [[ \$uid -eq 0 ]]; then
+        [[ -S /run/podman/podman.sock ]] && { echo /run/podman/podman.sock; return 0; }
+    else
+        [[ -S "/run/user/\$uid/podman/podman.sock" ]] && { echo "/run/user/\$uid/podman/podman.sock"; return 0; }
+    fi
+    return 1
+}
+
+sock=""
+if command -v docker &>/dev/null && sock=\$(find_sock docker); then
+    exec docker run --rm -ti --name=$name \\
+        -v "\$sock:/var/run/docker.sock" \\
+        $image "\$@"
+elif command -v podman &>/dev/null && sock=\$(find_sock podman); then
+    exec podman run --rm -ti --name=$name \\
+        -v "\$sock:/var/run/docker.sock" \\
+        $image "\$@"
+else
+    echo "Error: no usable Docker or Podman socket found." >&2
+    echo "  - Docker: ensure the daemon is running." >&2
+    echo "  - Podman: enable the socket with 'sudo systemctl enable --now podman.socket'" >&2
+    echo "           (or 'systemctl --user enable --now podman.socket' for rootless)." >&2
+    exit 1
+fi
+EOF
+    chmod +x "$path"
+}
+
+# Install ctop (container top - Docker/Podman wrapper)
 install_ctop() {
     if ! require_root; then
         return 1
@@ -667,29 +744,19 @@ install_ctop() {
         fi
     fi
 
-    if ! command_exists docker; then
-        ui_msgbox "Error" "Docker is required for ctop.\nPlease install Docker first."
+    if ! ensure_container_runtime "ctop"; then
         return 1
     fi
 
     ui_infobox "Installing" "Installing ctop..."
 
-    # Create wrapper script that runs ctop via Docker
-    cat > /usr/local/bin/ctop << 'EOF'
-#!/bin/bash
-# ctop - Container top via Docker
-docker run --rm -ti \
-    --name=ctop \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    quay.io/vektorlab/ctop:latest "$@"
-EOF
+    write_container_wrapper /usr/local/bin/ctop ctop quay.io/vektorlab/ctop:latest
 
-    chmod +x /usr/local/bin/ctop
     log_info "ctop installed"
-    ui_msgbox "Success" "ctop installed\n\nRun 'ctop' to monitor containers."
+    ui_msgbox "Success" "ctop installed\n\nRun 'ctop' to monitor containers.\nWorks with either Docker or Podman."
 }
 
-# Install dtop (Docker top - Docker wrapper)
+# Install dtop (Docker top - Docker/Podman wrapper)
 install_dtop() {
     if ! require_root; then
         return 1
@@ -701,26 +768,16 @@ install_dtop() {
         fi
     fi
 
-    if ! command_exists docker; then
-        ui_msgbox "Error" "Docker is required for dtop.\nPlease install Docker first."
+    if ! ensure_container_runtime "dtop"; then
         return 1
     fi
 
     ui_infobox "Installing" "Installing dtop..."
 
-    # Create wrapper script that runs dtop via Docker
-    cat > /usr/local/bin/dtop << 'EOF'
-#!/bin/bash
-# dtop - Docker top via Docker
-docker run --rm -ti \
-    --name=dtop \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    ghcr.io/amir20/dtop "$@"
-EOF
+    write_container_wrapper /usr/local/bin/dtop dtop ghcr.io/amir20/dtop
 
-    chmod +x /usr/local/bin/dtop
     log_info "dtop installed"
-    ui_msgbox "Success" "dtop installed\n\nRun 'dtop' to monitor containers."
+    ui_msgbox "Success" "dtop installed\n\nRun 'dtop' to monitor containers.\nWorks with either Docker or Podman."
 }
 
 # Uninstall software
@@ -742,8 +799,8 @@ uninstall_software() {
     is_installed yq && pkg_list+=("yq" "YAML processor" "off")
     is_installed starship && pkg_list+=("starship" "Cross-shell prompt" "off")
     is_installed gocryptfs && pkg_list+=("gocryptfs" "Encrypted overlay filesystem" "off")
-    is_installed ctop && pkg_list+=("ctop" "Container top (Docker)" "off")
-    is_installed dtop && pkg_list+=("dtop" "Docker top (Docker)" "off")
+    is_installed ctop && pkg_list+=("ctop" "Container top (Docker/Podman)" "off")
+    is_installed dtop && pkg_list+=("dtop" "Container top (Docker/Podman)" "off")
 
     if [[ ${#pkg_list[@]} -eq 0 ]]; then
         ui_msgbox "Info" "No removable software installed"
@@ -929,10 +986,10 @@ install_multiple() {
         pkg_list+=("gocryptfs" "Encrypted overlay filesystem" "off")
     fi
     if ! is_installed ctop; then
-        pkg_list+=("ctop" "Container top (Docker wrapper)" "off")
+        pkg_list+=("ctop" "Container top (Docker/Podman wrapper)" "off")
     fi
     if ! is_installed dtop; then
-        pkg_list+=("dtop" "Docker top (Docker wrapper)" "off")
+        pkg_list+=("dtop" "Container top (Docker/Podman wrapper)" "off")
     fi
 
     if [[ ${#pkg_list[@]} -eq 0 ]]; then

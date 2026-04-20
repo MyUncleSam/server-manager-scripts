@@ -231,8 +231,8 @@ Install software not available via APT.
   - **yq** - YAML processor
   - **starship** - Cross-shell prompt
   - **gocryptfs** - Encrypted overlay filesystem
-  - **ctop** - Container top (Docker wrapper)
-  - **dtop** - Docker top (Docker wrapper)
+  - **ctop** - Container top (Docker/Podman wrapper, auto-detects runtime)
+  - **dtop** - Container top (Docker/Podman wrapper, auto-detects runtime)
 
 ## MOTD Manager
 
