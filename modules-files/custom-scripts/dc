@@ -1,19 +1,38 @@
 #!/bin/bash
 
+# Detect compose runtime: prefer docker, fall back to podman.
+detect_compose() {
+    if command -v docker &>/dev/null && docker compose version &>/dev/null; then
+        echo "docker compose"
+    elif command -v podman &>/dev/null && podman compose version &>/dev/null; then
+        echo "podman compose"
+    elif command -v podman-compose &>/dev/null; then
+        echo "podman-compose"
+    else
+        return 1
+    fi
+}
+
+COMPOSE=$(detect_compose) || {
+    echo "Error: no compose runtime found (need 'docker compose', 'podman compose', or 'podman-compose')." >&2
+    exit 1
+}
+
 # Define a usage function
 usage() {
     echo "Usage: dc [options]"
+    echo "Runtime: $COMPOSE"
     echo "Options:"
-    echo "  d - docker compose down"
-    echo "  e - docker compose exec [container_name] [command]"
-    echo "  k - docker compose kill"
-    echo "  l - docker compose logs -f --tail=1000"
-    echo "  p - docker compose pull"
-    echo "  ps - docker compose ps"
-    echo "  r - docker compose restart"
-    echo "  t - docker compose top"
-    echo "  u - docker compose up -d"
-    echo "  v - docker compose volumes"
+    echo "  d - $COMPOSE down"
+    echo "  e - $COMPOSE exec [container_name] [command]"
+    echo "  k - $COMPOSE kill"
+    echo "  l - $COMPOSE logs -f --tail=1000"
+    echo "  p - $COMPOSE pull"
+    echo "  ps - $COMPOSE ps"
+    echo "  r - $COMPOSE restart"
+    echo "  t - $COMPOSE top"
+    echo "  u - $COMPOSE up -d"
+    echo "  v - $COMPOSE volumes"
 }
 
 # Check if the correct number of arguments is provided
@@ -27,24 +46,24 @@ input_string="$1"
 for (( i=0; i<${#input_string}; i++ )); do
     char="${input_string:$i:1}"
     case $char in
-        d) echo "Executing: docker compose down" && docker compose down ;;
-        e) echo "Executing: docker compose exec ${@:2}" &&  docker compose exec ${@:2} ;;
-        k) echo "Executing: docker compose kill" && docker compose kill ;;
-        l) echo "Executing: docker compose logs -f --tail=1000" && docker compose logs -f --tail=1000 ;;
+        d) echo "Executing: $COMPOSE down" && $COMPOSE down ;;
+        e) echo "Executing: $COMPOSE exec ${@:2}" && $COMPOSE exec ${@:2} ;;
+        k) echo "Executing: $COMPOSE kill" && $COMPOSE kill ;;
+        l) echo "Executing: $COMPOSE logs -f --tail=1000" && $COMPOSE logs -f --tail=1000 ;;
         p)
             # Check if next character is 's' for "ps"
             next_char="${input_string:$((i+1)):1}"
             if [ "$next_char" = "s" ]; then
-                echo "Executing: docker compose ps" && docker compose ps
+                echo "Executing: $COMPOSE ps" && $COMPOSE ps
                 ((i++))  # skip the 's'
             else
-                echo "Executing: docker compose pull" && docker compose pull
+                echo "Executing: $COMPOSE pull" && $COMPOSE pull
             fi
             ;;
-        r) echo "Executing: docker compose restart"  && docker compose restart  ;;
-        t) echo "Executing: docker compose top" && docker compose top ;;
-        u) echo "Executing: docker compose up -d" && docker compose up -d ;;
-        v) echo "Executing: docker volumes" && docker compose volumes ;;
+        r) echo "Executing: $COMPOSE restart"  && $COMPOSE restart  ;;
+        t) echo "Executing: $COMPOSE top" && $COMPOSE top ;;
+        u) echo "Executing: $COMPOSE up -d" && $COMPOSE up -d ;;
+        v) echo "Executing: $COMPOSE volumes" && $COMPOSE volumes ;;
         *) echo "Unknown option: $char" >&2; usage; exit 1 ;;
     esac
 done
