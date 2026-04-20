@@ -18,6 +18,22 @@ COMPOSE=$(detect_compose) || {
     exit 1
 }
 
+# Color codes (only enable on a TTY to keep logs/pipes clean)
+if [ -t 1 ]; then
+    C_RESET=$'\033[0m'
+    C_LABEL=$'\033[1;97;44m'   # bold white on blue
+    C_CMD=$'\033[1;33m'        # bold yellow
+else
+    C_RESET=''
+    C_LABEL=''
+    C_CMD=''
+fi
+
+# Print a highly visible "Executing:" banner for the given command string.
+announce() {
+    printf '%s Executing %s %s%s%s\n' "$C_LABEL" "$C_RESET" "$C_CMD" "$*" "$C_RESET"
+}
+
 # Define a usage function
 usage() {
     echo "Usage: dc [options]"
@@ -46,24 +62,24 @@ input_string="$1"
 for (( i=0; i<${#input_string}; i++ )); do
     char="${input_string:$i:1}"
     case $char in
-        d) echo "Executing: $COMPOSE down" && $COMPOSE down ;;
-        e) echo "Executing: $COMPOSE exec ${@:2}" && $COMPOSE exec ${@:2} ;;
-        k) echo "Executing: $COMPOSE kill" && $COMPOSE kill ;;
-        l) echo "Executing: $COMPOSE logs -f --tail=1000" && $COMPOSE logs -f --tail=1000 ;;
+        d) announce "$COMPOSE down" && $COMPOSE down ;;
+        e) announce "$COMPOSE exec ${*:2}" && $COMPOSE exec "${@:2}" ;;
+        k) announce "$COMPOSE kill" && $COMPOSE kill ;;
+        l) announce "$COMPOSE logs -f --tail=1000" && $COMPOSE logs -f --tail=1000 ;;
         p)
             # Check if next character is 's' for "ps"
             next_char="${input_string:$((i+1)):1}"
             if [ "$next_char" = "s" ]; then
-                echo "Executing: $COMPOSE ps" && $COMPOSE ps
+                announce "$COMPOSE ps" && $COMPOSE ps
                 ((i++))  # skip the 's'
             else
-                echo "Executing: $COMPOSE pull" && $COMPOSE pull
+                announce "$COMPOSE pull" && $COMPOSE pull
             fi
             ;;
-        r) echo "Executing: $COMPOSE restart"  && $COMPOSE restart  ;;
-        t) echo "Executing: $COMPOSE top" && $COMPOSE top ;;
-        u) echo "Executing: $COMPOSE up -d" && $COMPOSE up -d ;;
-        v) echo "Executing: $COMPOSE volumes" && $COMPOSE volumes ;;
+        r) announce "$COMPOSE restart" && $COMPOSE restart ;;
+        t) announce "$COMPOSE top" && $COMPOSE top ;;
+        u) announce "$COMPOSE up -d" && $COMPOSE up -d ;;
+        v) announce "$COMPOSE volumes" && $COMPOSE volumes ;;
         *) echo "Unknown option: $char" >&2; usage; exit 1 ;;
     esac
 done
