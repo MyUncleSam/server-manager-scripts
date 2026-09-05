@@ -9,6 +9,7 @@ A modular, dialog-based TUI (Text User Interface) tool for managing Ubuntu serve
 - Dialog-based interface using whiptail
 - Works over SSH (non-interactive sessions)
 - Comprehensive server management capabilities
+- **Skippable dependency check** - Run on non-Debian distributions (Arch, Fedora, ...)
 
 See [FEATURES.md](FEATURES.md) for a complete list of modules and features.
 
@@ -17,6 +18,17 @@ See [FEATURES.md](FEATURES.md) for a complete list of modules and features.
 - Ubuntu Server (18.04+)
 - Root/sudo access
 - whiptail (usually pre-installed)
+
+### Other distributions
+
+The tool targets Ubuntu/Debian, and the startup dependency check reports missing
+packages using `apt-get`. On distributions without APT (Arch, Fedora, openSUSE,
+Alpine, ...) the check can be bypassed — see
+[Dependency Check](#dependency-check) below.
+
+Note that modules which install or remove packages still use `apt-get`/`dpkg`
+and will not work on non-APT systems. Modules that only read system state or
+manage systemd services work regardless of the package manager.
 
 ## Installation
 
@@ -65,6 +77,35 @@ To manually update without launching the manager:
 
 ```bash
 sudo server-manager --update
+```
+
+### Dependency Check
+
+On startup the manager verifies that `whiptail` is available. When it is
+missing, the install hint is adapted to the detected package manager
+(`apt-get`, `pacman`, `dnf`, `zypper` or `apk`).
+
+To skip the check for a single run:
+
+```bash
+sudo server-manager --skip-dependency-check
+```
+
+To disable it permanently:
+
+```bash
+sudo server-manager --switch-dependency-check
+```
+
+This switches the current state — if the check is enabled it will be disabled,
+and vice versa. The current state is printed after each toggle. The setting is
+stored in the `DISABLE_DEPENDENCY_CHECK` file next to the scripts.
+
+The environment variable `SERVER_MANAGER_SKIP_DEPS=1` has the same effect as
+`--skip-dependency-check`, which is handy for wrappers and aliases:
+
+```bash
+SERVER_MANAGER_SKIP_DEPS=1 sudo -E server-manager
 ```
 
 ### Navigation

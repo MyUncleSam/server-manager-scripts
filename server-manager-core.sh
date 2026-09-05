@@ -10,13 +10,57 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODULES_DIR="${SCRIPT_DIR}/modules"
 LIB_DIR="${SCRIPT_DIR}/lib"
+SKIP_DEPS_FILE="${SCRIPT_DIR}/DISABLE_DEPENDENCY_CHECK"
 
 # Source libraries
 source "${LIB_DIR}/ui.sh"
 source "${LIB_DIR}/common.sh"
 
+# Bypass the dependency check (useful on non-Debian distributions).
+# Enabled by --skip-dependency-check, the DISABLE_DEPENDENCY_CHECK file
+# or SERVER_MANAGER_SKIP_DEPS=1.
+SKIP_DEPENDENCY_CHECK="${SERVER_MANAGER_SKIP_DEPS:-0}"
+
+# Parse command-line arguments
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --skip-dependency-check|--no-dependency-check)
+                SKIP_DEPENDENCY_CHECK=1
+                ;;
+        esac
+        shift
+    done
+}
+
+# Build the distribution-specific install hint for missing packages
+install_hint() {
+    local packages=("$@")
+
+    if command -v apt-get &>/dev/null; then
+        echo "sudo apt-get install ${packages[*]}"
+    elif command -v pacman &>/dev/null; then
+        # On Arch whiptail is shipped by the libnewt package
+        local arch_packages=("${packages[@]//whiptail/libnewt}")
+        echo "sudo pacman -S ${arch_packages[*]}"
+    elif command -v dnf &>/dev/null; then
+        echo "sudo dnf install ${packages[*]}"
+    elif command -v zypper &>/dev/null; then
+        echo "sudo zypper install ${packages[*]}"
+    elif command -v apk &>/dev/null; then
+        echo "sudo apk add ${packages[*]}"
+    else
+        echo "your distribution's package manager (${packages[*]})"
+    fi
+}
+
 # Check dependencies
 check_dependencies() {
+    # Allow bypassing the check entirely
+    if [[ "$SKIP_DEPENDENCY_CHECK" == "1" ]] || [[ -f "$SKIP_DEPS_FILE" ]]; then
+        return 0
+    fi
+
     local missing=()
 
     if ! command -v whiptail &>/dev/null; then
@@ -25,7 +69,10 @@ check_dependencies() {
 
     if [[ ${#missing[@]} -gt 0 ]]; then
         echo "Missing dependencies: ${missing[*]}"
-        echo "Install with: sudo apt-get install ${missing[*]}"
+        echo "Install with: $(install_hint "${missing[@]}")"
+        echo ""
+        echo "To bypass this check, run with --skip-dependency-check"
+        echo "or create the file: $SKIP_DEPS_FILE"
         exit 1
     fi
 }
@@ -127,6 +174,8 @@ main_menu() {
 
 # Main entry point
 main() {
+    parse_args "$@"
+
     # Check for root privileges
     if [[ $EUID -ne 0 ]]; then
         echo "Error: This script requires administrative privileges."

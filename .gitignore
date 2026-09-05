@@ -3,3 +3,6 @@ logs/
 
 # Auto-update disable flag
 DISABLE_AUTO_UPDATE
+
+# Dependency check disable flag
+DISABLE_DEPENDENCY_CHECK

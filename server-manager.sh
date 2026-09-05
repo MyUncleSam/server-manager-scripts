@@ -14,6 +14,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 CORE_SCRIPT="${SCRIPT_DIR}/server-manager-core.sh"
 DISABLE_FILE="${SCRIPT_DIR}/DISABLE_AUTO_UPDATE"
+SKIP_DEPS_FILE="${SCRIPT_DIR}/DISABLE_DEPENDENCY_CHECK"
+
+# Toggle the dependency check on/off
+switch_dependency_check() {
+    if [[ -f "$SKIP_DEPS_FILE" ]]; then
+        rm -f "$SKIP_DEPS_FILE"
+        echo "Dependency check has been enabled."
+    else
+        touch "$SKIP_DEPS_FILE"
+        echo "Dependency check has been disabled."
+    fi
+    exit 0
+}
 
 # Toggle auto-update on/off
 switch_auto_update() {
@@ -56,12 +69,18 @@ show_help() {
     echo "Usage: server-manager [OPTION]"
     echo ""
     echo "Options:"
-    echo "  --help                 Show this help message"
-    echo "  --update               Update to the latest version without launching"
-    echo "  --switch-auto-update   Toggle auto-update on startup on/off"
+    echo "  --help                     Show this help message"
+    echo "  --update                   Update to the latest version without launching"
+    echo "  --switch-auto-update       Toggle auto-update on startup on/off"
+    echo "  --switch-dependency-check  Toggle the startup dependency check on/off"
+    echo "  --skip-dependency-check    Skip the dependency check for this run only"
     echo ""
     echo "Without options, the server manager launches normally"
     echo "(with auto-update check if enabled)."
+    echo ""
+    echo "The dependency check assumes a Debian/Ubuntu system. On other"
+    echo "distributions (Arch, Fedora, ...) install whiptail using the native"
+    echo "package manager and disable the check with --switch-dependency-check."
     exit 0
 }
 
@@ -72,6 +91,9 @@ case "${1:-}" in
         ;;
     --switch-auto-update)
         switch_auto_update
+        ;;
+    --switch-dependency-check)
+        switch_dependency_check
         ;;
     --update)
         update_only
